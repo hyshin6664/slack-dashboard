@@ -1,0 +1,96 @@
+<div id="toastMsg" class="toast-msg">메시지</div>
+
+<div class="top-bar">
+    <div class="top-bar-title">💬 개인대시보드 Slack</div>
+    <div class="top-bar-actions">
+        <!-- [v1.2] 연결 해제 버튼 (항상 표시) -->
+        <button class="action-btn btn-light" onclick="slackDisconnect()" title="Slack 연결 해제 후 재연동">🔌 연결 해제</button>
+        <!-- [v0.9] 소식 버튼 -->
+        <button class="action-btn btn-light" onclick="openSlackUpdatesModal()" title="업데이트 이력">🎁 소식</button>
+        <!-- [v0.6] 진단 버튼 -->
+        <button class="sim-btn" onclick="runSlackDiagnostics()" title="Slack API 진단 → 결과 클립보드 복사">🔍 진단</button>
+        <!-- [v1.0] 새로고침 + 테스트 -->
+        <button class="sim-btn" onclick="manualRefresh()" title="대화 목록 새로고침">🔄 새로고침</button>
+        <!-- [v3.0] 알림 테스트 버튼 -->
+        <button class="sim-btn" onclick="testSlackNotification()" title="새 메시지 알림 테스트 (탭 깜빡임 + 소리 + 데스크톱)">🔔 알림테스트</button>
+        <!-- 오류신고 버튼은 06.html(수집기)에서 동적 주입됨 -->
+    </div>
+</div>
+
+<div class="app-container">
+    <!-- 데모 모드 배너 -->
+    <div class="slack-demo-banner">
+        🚧 데모 모드 — OAuth 연동 전 UI 확인용 (실제 메시지 아님)
+    </div>
+
+    <!-- 메인 레이아웃 (카톡 스타일 중앙 정렬) -->
+    <div class="slack-layout">
+        <!-- 검색 바 -->
+        <div class="slack-search-wrap">
+            <input type="text" id="slackSearchInput" class="slack-search-input"
+                placeholder="이름/채널 검색"
+                oninput="handleSlackSearchInput()">
+        </div>
+
+        <!-- 탭 스위처 -->
+        <div class="slack-tabs">
+            <button class="slack-tab" data-tab="friends" onclick="switchSlackTab('friends')">
+                👤 친구
+            </button>
+            <button class="slack-tab active" data-tab="dm" onclick="switchSlackTab('dm')">
+                💬 채팅
+                <span class="tab-count" id="slackTabCountDm">0</span>
+            </button>
+            <button class="slack-tab" data-tab="channel" onclick="switchSlackTab('channel')">
+                # 채널
+                <span class="tab-count" id="slackTabCountChannel">0</span>
+            </button>
+            <button class="slack-tab" data-tab="canvas" onclick="switchSlackTab('canvas')">
+                📋 캔버스
+                <span class="tab-count" id="slackTabCountCanvas">0</span>
+            </button>
+        </div>
+
+        <!-- 채팅 목록 -->
+        <div class="slack-chat-list" id="slackChatList">
+            <!-- 동적 렌더링 -->
+        </div>
+    </div>
+</div>
+
+<!-- 카톡 스타일 팝업 컨테이너 (최대 5개) -->
+<div class="slack-popup-container" id="slackPopupContainer"></div>
+
+<!-- 하단 최소화 독 -->
+<div class="slack-popup-dock" id="slackPopupDock"></div>
+
+<!-- [v0.5] 이모지 피커 (전역 하나) -->
+<div class="emoji-picker" id="emojiPicker"></div>
+
+<!-- [v0.5] 메시지 컨텍스트 메뉴 (전역 하나) -->
+<div class="msg-context-menu" id="msgContextMenu"></div>
+
+<!-- [v0.5] 멘션 자동완성 (전역 하나) -->
+<div class="mention-dropdown" id="mentionDropdown"></div>
+
+<!-- [v0.5] 프로필 모달 -->
+<div class="slack-profile-modal" id="slackProfileModal">
+    <div class="slack-profile-content" id="slackProfileContent"></div>
+</div>
+
+<!-- [v0.5] 전달 모달 -->
+<!-- [v0.9] 소식 모달 -->
+<div id="slackUpdatesModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-content" style="max-width:560px; max-height:80vh; overflow-y:auto;">
+        <h3 style="margin-bottom:15px; color:#1e3a8a; text-align:center;">🎁 소식 — 업데이트 이력</h3>
+        <div id="slackUpdatesList"></div>
+        <button style="display:block; margin:15px auto 0; padding:8px 20px; background:#e2e8f0; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; color:#475569;" onclick="document.getElementById('slackUpdatesModal').style.display='none'">닫기</button>
+    </div>
+</div>
+
+<div class="slack-forward-modal" id="slackForwardModal">
+    <div class="slack-forward-content">
+        <div class="slack-forward-header">📨 메시지 전달</div>
+        <div class="slack-forward-target-list" id="slackForwardList"></div>
+    </div>
+</div>
