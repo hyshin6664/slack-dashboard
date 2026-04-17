@@ -1,0 +1,25 @@
+{
+  "name": "Slack 대시보드",
+  "short_name": "Slack",
+  "description": "회사 Slack을 카톡처럼 가볍게 쓰는 대시보드",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fef033",
+  "theme_color": "#fef033",
+  "orientation": "portrait",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

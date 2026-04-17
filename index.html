@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Slack 대시보드 - 테스트</title>
+
+    <!-- PWA 설정 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#fef033">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -103,6 +110,31 @@
             transform: translateY(0);
         }
 
+        .btn-install {
+            background: #3b82f6;
+            color: white;
+            display: none;
+        }
+
+        .btn-install:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn-install.show {
+            display: block;
+        }
+
+        .btn-notify {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-notify:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
         .result-box {
             margin-top: 20px;
             padding: 16px;
@@ -130,6 +162,13 @@
             background: #dbeafe;
             border: 2px solid #3b82f6;
             color: #1e40af;
+            display: block;
+        }
+
+        .result-box.info {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            color: #78350f;
             display: block;
         }
 
@@ -201,6 +240,16 @@
             color: #475569;
             font-family: monospace;
         }
+
+        .section-divider {
+            margin: 25px 0 15px;
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
@@ -208,7 +257,7 @@
         <div class="header">
             <div class="emoji">💬</div>
             <h1>Slack 대시보드</h1>
-            <div class="subtitle">GitHub Pages 테스트 버전</div>
+            <div class="subtitle">PWA 설치 테스트 버전 v0.2</div>
         </div>
 
         <!-- 상태 정보 -->
@@ -234,6 +283,10 @@
                 <span class="label">서비스 워커 지원</span>
                 <span class="value" id="sw">확인 중...</span>
             </div>
+            <div class="status-item">
+                <span class="label">PWA 설치 가능</span>
+                <span class="value" id="installable">확인 중...</span>
+            </div>
         </div>
 
         <!-- 카톡 스타일 미리보기 -->
@@ -248,9 +301,26 @@
             </div>
         </div>
 
-        <!-- 연결 테스트 버튼 -->
-        <button class="btn btn-primary" onclick="testConnection()" style="margin-top: 20px;">
-            🔌 Apps Script 연결 테스트
+        <!-- PWA 설치 버튼 -->
+        <div class="section-divider">📱 설치 & 알림</div>
+
+        <button class="btn btn-install" id="installBtn" onclick="installPWA()">
+            📱 바탕화면에 설치하기
+        </button>
+
+        <button class="btn btn-notify" onclick="requestNotificationPermission()">
+            🔔 알림 권한 허용하기
+        </button>
+
+        <!-- 테스트 버튼들 -->
+        <div class="section-divider">🧪 테스트</div>
+
+        <button class="btn btn-primary" onclick="testConnection()">
+            🔌 기본 테스트
+        </button>
+
+        <button class="btn btn-primary" onclick="testNotification()" style="background: #f59e0b; color: white;">
+            🔔 알림 테스트 (알림 권한 필요)
         </button>
 
         <!-- 결과 박스 -->
@@ -258,58 +328,160 @@
 
         <!-- 푸터 -->
         <div class="footer">
-            <span class="version">v0.1 test</span>
+            <span class="version">v0.2 PWA test</span>
             <div style="margin-top: 8px;">
-                GitHub Pages로 호스팅됨 ✨
+                GitHub Pages + PWA ✨
             </div>
         </div>
     </div>
 
     <script>
-        // 페이지 로드 시 상태 체크
-        window.addEventListener('load', function() {
-            // 브라우저 확인
-            var ua = navigator.userAgent;
-            var browser = 'Unknown';
-            if (ua.indexOf('Chrome') !== -1) browser = '✅ Chrome';
-            else if (ua.indexOf('Edge') !== -1) browser = '✅ Edge';
-            else if (ua.indexOf('Firefox') !== -1) browser = '✅ Firefox';
-            else if (ua.indexOf('Safari') !== -1) browser = '✅ Safari';
-            document.getElementById('browser').textContent = browser;
-            document.getElementById('browser').className = 'value ok';
+        // PWA 설치 이벤트 저장
+        var deferredPrompt = null;
 
-            // 알림 권한 확인
-            if (typeof Notification !== 'undefined') {
-                var perm = Notification.permission;
-                var text = '';
-                var cls = '';
-                if (perm === 'granted') { text = '✅ 허용됨'; cls = 'ok'; }
-                else if (perm === 'denied') { text = '❌ 거부됨'; cls = 'fail'; }
-                else { text = '⚠️ 미설정 (허용 가능)'; cls = ''; }
-                document.getElementById('notif').textContent = text;
-                document.getElementById('notif').className = 'value ' + cls;
-            } else {
-                document.getElementById('notif').textContent = '❌ 지원 안함';
-                document.getElementById('notif').className = 'value fail';
-            }
-
-            // 서비스 워커 지원 확인 (PWA용)
-            if ('serviceWorker' in navigator) {
-                document.getElementById('sw').textContent = '✅ 지원됨 (PWA 가능)';
-                document.getElementById('sw').className = 'value ok';
-            } else {
-                document.getElementById('sw').textContent = '❌ 지원 안함';
-                document.getElementById('sw').className = 'value fail';
+        // PWA 설치 가능 감지
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            // 설치 버튼 표시
+            var btn = document.getElementById('installBtn');
+            if (btn) btn.classList.add('show');
+            // 상태 업데이트
+            var installableEl = document.getElementById('installable');
+            if (installableEl) {
+                installableEl.textContent = '✅ 설치 가능!';
+                installableEl.className = 'value ok';
             }
         });
 
-        // Apps Script 연결 테스트
+        // PWA 설치됨 감지
+        window.addEventListener('appinstalled', function() {
+            var resultBox = document.getElementById('result');
+            resultBox.className = 'result-box success';
+            resultBox.innerHTML = '🎉 <strong>PWA 설치 성공!</strong><br>바탕화면 아이콘을 확인해보세요!';
+            // 버튼 숨기기
+            var btn = document.getElementById('installBtn');
+            if (btn) btn.classList.remove('show');
+            deferredPrompt = null;
+        });
+
+        // PWA 설치 함수
+        function installPWA() {
+            if (!deferredPrompt) {
+                var resultBox = document.getElementById('result');
+                resultBox.className = 'result-box info';
+                resultBox.innerHTML =
+                    '⚠️ <strong>설치 버튼을 찾지 못했어요</strong><br>' +
+                    '다음 중 하나를 시도해보세요:<br>' +
+                    '• Chrome 주소창 오른쪽 📥 아이콘 클릭<br>' +
+                    '• 메뉴 (⋮) → "Slack 대시보드 설치..."<br>' +
+                    '• 모바일: 메뉴 → "홈 화면에 추가"';
+                return;
+            }
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(function(choice) {
+                if (choice.outcome === 'accepted') {
+                    console.log('설치 수락');
+                } else {
+                    console.log('설치 거부');
+                }
+                deferredPrompt = null;
+            });
+        }
+
+        // 알림 권한 요청
+        function requestNotificationPermission() {
+            var resultBox = document.getElementById('result');
+
+            if (typeof Notification === 'undefined') {
+                resultBox.className = 'result-box error';
+                resultBox.innerHTML = '❌ 이 브라우저는 알림을 지원하지 않아요';
+                return;
+            }
+
+            if (Notification.permission === 'granted') {
+                resultBox.className = 'result-box success';
+                resultBox.innerHTML = '✅ 이미 알림 권한이 허용되어 있어요!';
+                updateNotifStatus();
+                return;
+            }
+
+            if (Notification.permission === 'denied') {
+                resultBox.className = 'result-box error';
+                resultBox.innerHTML =
+                    '❌ <strong>알림이 차단되어 있어요</strong><br>' +
+                    '브라우저 주소창 왼쪽 🔒 아이콘 클릭<br>' +
+                    '→ "알림" 설정을 "허용"으로 변경해주세요';
+                return;
+            }
+
+            Notification.requestPermission().then(function(permission) {
+                if (permission === 'granted') {
+                    resultBox.className = 'result-box success';
+                    resultBox.innerHTML = '✅ <strong>알림 권한 허용됨!</strong><br>이제 새 메시지가 오면 알려드릴 수 있어요!';
+                    new Notification('💬 알림 허용 완료!', {
+                        body: '이제 새 메시지를 실시간으로 알려드려요 🎉',
+                        icon: 'icon-192.png'
+                    });
+                    updateNotifStatus();
+                } else {
+                    resultBox.className = 'result-box info';
+                    resultBox.innerHTML = '⚠️ 알림이 허용되지 않았어요. 나중에 다시 시도해보세요.';
+                }
+            });
+        }
+
+        // 알림 테스트
+        function testNotification() {
+            var resultBox = document.getElementById('result');
+
+            if (typeof Notification === 'undefined') {
+                resultBox.className = 'result-box error';
+                resultBox.innerHTML = '❌ 알림 지원 안함';
+                return;
+            }
+
+            if (Notification.permission !== 'granted') {
+                resultBox.className = 'result-box error';
+                resultBox.innerHTML = '❌ 알림 권한이 없어요. 먼저 "🔔 알림 권한 허용하기" 버튼을 눌러주세요!';
+                return;
+            }
+
+            new Notification('💬 박기찬', {
+                body: '안녕하세요! 테스트 메시지입니다 🎊\n알림이 잘 뜨나요?',
+                icon: 'icon-192.png',
+                badge: 'icon-192.png',
+                requireInteraction: true,
+                tag: 'test-notification'
+            });
+
+            resultBox.className = 'result-box success';
+            resultBox.innerHTML =
+                '🔔 <strong>알림을 보냈어요!</strong><br>' +
+                '• 화면 우측 하단 확인<br>' +
+                '• 다른 앱 써도 뜨는지 확인<br>' +
+                '• 다른 탭으로 가서 다시 눌러보세요!';
+        }
+
+        // 알림 상태 업데이트
+        function updateNotifStatus() {
+            var el = document.getElementById('notif');
+            if (!el || typeof Notification === 'undefined') return;
+            var perm = Notification.permission;
+            var text = '', cls = '';
+            if (perm === 'granted') { text = '✅ 허용됨'; cls = 'ok'; }
+            else if (perm === 'denied') { text = '❌ 거부됨'; cls = 'fail'; }
+            else { text = '⚠️ 미설정'; cls = ''; }
+            el.textContent = text;
+            el.className = 'value ' + cls;
+        }
+
+        // 기본 테스트
         function testConnection() {
             var resultBox = document.getElementById('result');
             resultBox.className = 'result-box loading';
-            resultBox.innerHTML = '⏳ 연결 중... 잠시만요!';
+            resultBox.innerHTML = '⏳ 테스트 중...';
 
-            // 테스트: 간단한 fetch (나중에 Apps Script URL로 교체)
             setTimeout(function() {
                 resultBox.className = 'result-box success';
                 resultBox.innerHTML =
@@ -317,10 +489,52 @@
                     '• 페이지 로딩: 정상<br>' +
                     '• CSS 스타일: 정상<br>' +
                     '• JavaScript 동작: 정상<br>' +
-                    '• 카톡 스타일 렌더링: 정상<br><br>' +
-                    '🎯 다음 단계: Apps Script 연결 설정이 필요해요!';
-            }, 1000);
+                    '• 카톡 스타일 렌더링: 정상<br>' +
+                    '• PWA manifest: ' + (navigator.serviceWorker ? '✅ 준비됨' : '❌ 미지원');
+            }, 500);
         }
+
+        // 페이지 로드 시
+        window.addEventListener('load', function() {
+            // 브라우저 확인
+            var ua = navigator.userAgent;
+            var browser = 'Unknown';
+            if (ua.indexOf('Edg') !== -1) browser = '✅ Edge';
+            else if (ua.indexOf('Chrome') !== -1) browser = '✅ Chrome';
+            else if (ua.indexOf('Firefox') !== -1) browser = '✅ Firefox';
+            else if (ua.indexOf('Safari') !== -1) browser = '✅ Safari';
+            document.getElementById('browser').textContent = browser;
+            document.getElementById('browser').className = 'value ok';
+
+            // 알림 권한
+            updateNotifStatus();
+
+            // 서비스 워커
+            if ('serviceWorker' in navigator) {
+                document.getElementById('sw').textContent = '✅ 지원됨';
+                document.getElementById('sw').className = 'value ok';
+            } else {
+                document.getElementById('sw').textContent = '❌ 지원 안함';
+                document.getElementById('sw').className = 'value fail';
+            }
+
+            // PWA 설치 가능 여부 (일부 브라우저는 즉시 판단 어려움)
+            var installableEl = document.getElementById('installable');
+            setTimeout(function() {
+                if (deferredPrompt) {
+                    installableEl.textContent = '✅ 설치 가능!';
+                    installableEl.className = 'value ok';
+                } else {
+                    // 이미 설치되었거나 iOS 등
+                    if (window.matchMedia('(display-mode: standalone)').matches) {
+                        installableEl.textContent = '✅ 이미 설치됨';
+                        installableEl.className = 'value ok';
+                    } else {
+                        installableEl.textContent = '⚠️ 주소창에서 설치 (Chrome)';
+                    }
+                }
+            }, 2000);
+        });
     </script>
 </body>
 </html>
