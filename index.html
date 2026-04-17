@@ -78,7 +78,6 @@
         }
 
         .status-item:last-child { border-bottom: none; }
-
         .status-item .label { color: #64748b; }
         .status-item .value { color: #1e293b; font-weight: 600; }
         .status-item .ok { color: #10b981; }
@@ -96,44 +95,15 @@
             margin-bottom: 10px;
         }
 
-        .btn-primary {
-            background: #fef033;
-            color: #1e293b;
-        }
-
-        .btn-primary:hover {
-            background: #fde047;
-            transform: translateY(-2px);
-        }
-
-        .btn-primary:active {
-            transform: translateY(0);
-        }
-
-        .btn-install {
-            background: #3b82f6;
-            color: white;
-            display: none;
-        }
-
-        .btn-install:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
-        }
-
-        .btn-install.show {
-            display: block;
-        }
-
-        .btn-notify {
-            background: #10b981;
-            color: white;
-        }
-
-        .btn-notify:hover {
-            background: #059669;
-            transform: translateY(-2px);
-        }
+        .btn-primary { background: #fef033; color: #1e293b; }
+        .btn-primary:hover { background: #fde047; transform: translateY(-2px); }
+        .btn-install { background: #3b82f6; color: white; display: none; }
+        .btn-install:hover { background: #2563eb; transform: translateY(-2px); }
+        .btn-install.show { display: block; }
+        .btn-notify { background: #10b981; color: white; }
+        .btn-notify:hover { background: #059669; transform: translateY(-2px); }
+        .btn-sw { background: #8b5cf6; color: white; }
+        .btn-sw:hover { background: #7c3aed; transform: translateY(-2px); }
 
         .result-box {
             margin-top: 20px;
@@ -213,15 +183,8 @@
             max-width: 70%;
         }
 
-        .bubble.theirs {
-            background: white;
-            border: 1px solid #e2e8f0;
-        }
-
-        .bubble.mine {
-            background: #fef033;
-            color: #1e293b;
-        }
+        .bubble.theirs { background: white; border: 1px solid #e2e8f0; }
+        .bubble.mine { background: #fef033; color: #1e293b; }
 
         .footer {
             text-align: center;
@@ -257,7 +220,7 @@
         <div class="header">
             <div class="emoji">💬</div>
             <h1>Slack 대시보드</h1>
-            <div class="subtitle">PWA 설치 테스트 버전 v0.2</div>
+            <div class="subtitle">Service Worker 테스트 v0.3</div>
         </div>
 
         <!-- 상태 정보 -->
@@ -265,11 +228,11 @@
             <h3>📊 시스템 상태</h3>
             <div class="status-item">
                 <span class="label">호스팅</span>
-                <span class="value ok" id="hosting">✅ GitHub Pages</span>
+                <span class="value ok">✅ GitHub Pages</span>
             </div>
             <div class="status-item">
                 <span class="label">HTTPS 보안</span>
-                <span class="value ok" id="https">✅ 활성화됨</span>
+                <span class="value ok">✅ 활성화됨</span>
             </div>
             <div class="status-item">
                 <span class="label">브라우저</span>
@@ -284,6 +247,10 @@
                 <span class="value" id="sw">확인 중...</span>
             </div>
             <div class="status-item">
+                <span class="label">서비스 워커 등록</span>
+                <span class="value" id="swReg">확인 중...</span>
+            </div>
+            <div class="status-item">
                 <span class="label">PWA 설치 가능</span>
                 <span class="value" id="installable">확인 중...</span>
             </div>
@@ -293,7 +260,7 @@
         <div class="chat-preview">
             <h3>🎨 카톡 스타일 미리보기</h3>
             <div class="bubble-row">
-                <div class="avatar">박</div>
+                <div class="avatar">홍</div>
                 <div class="bubble theirs">안녕하세요! 테스트 메시지예요 👋</div>
             </div>
             <div class="bubble-row mine">
@@ -301,7 +268,7 @@
             </div>
         </div>
 
-        <!-- PWA 설치 버튼 -->
+        <!-- PWA 설치 & 알림 -->
         <div class="section-divider">📱 설치 & 알림</div>
 
         <button class="btn btn-install" id="installBtn" onclick="installPWA()">
@@ -320,7 +287,11 @@
         </button>
 
         <button class="btn btn-primary" onclick="testNotification()" style="background: #f59e0b; color: white;">
-            🔔 알림 테스트 (알림 권한 필요)
+            🔔 알림 테스트 (즉시)
+        </button>
+
+        <button class="btn btn-sw" onclick="testServiceWorkerNotification()">
+            ⚡ Service Worker 알림 테스트
         </button>
 
         <!-- 결과 박스 -->
@@ -328,25 +299,25 @@
 
         <!-- 푸터 -->
         <div class="footer">
-            <span class="version">v0.2 PWA test</span>
+            <span class="version">v0.3 SW test</span>
             <div style="margin-top: 8px;">
-                GitHub Pages + PWA ✨
+                GitHub Pages + PWA + Service Worker ✨
             </div>
         </div>
     </div>
 
     <script>
-        // PWA 설치 이벤트 저장
         var deferredPrompt = null;
+        var swRegistration = null;
 
-        // PWA 설치 가능 감지
+        // ============================================================
+        // PWA 설치 이벤트
+        // ============================================================
         window.addEventListener('beforeinstallprompt', function(e) {
             e.preventDefault();
             deferredPrompt = e;
-            // 설치 버튼 표시
             var btn = document.getElementById('installBtn');
             if (btn) btn.classList.add('show');
-            // 상태 업데이트
             var installableEl = document.getElementById('installable');
             if (installableEl) {
                 installableEl.textContent = '✅ 설치 가능!';
@@ -354,42 +325,32 @@
             }
         });
 
-        // PWA 설치됨 감지
         window.addEventListener('appinstalled', function() {
             var resultBox = document.getElementById('result');
             resultBox.className = 'result-box success';
             resultBox.innerHTML = '🎉 <strong>PWA 설치 성공!</strong><br>바탕화면 아이콘을 확인해보세요!';
-            // 버튼 숨기기
             var btn = document.getElementById('installBtn');
             if (btn) btn.classList.remove('show');
             deferredPrompt = null;
         });
 
-        // PWA 설치 함수
         function installPWA() {
             if (!deferredPrompt) {
                 var resultBox = document.getElementById('result');
                 resultBox.className = 'result-box info';
                 resultBox.innerHTML =
                     '⚠️ <strong>설치 버튼을 찾지 못했어요</strong><br>' +
-                    '다음 중 하나를 시도해보세요:<br>' +
                     '• Chrome 주소창 오른쪽 📥 아이콘 클릭<br>' +
-                    '• 메뉴 (⋮) → "Slack 대시보드 설치..."<br>' +
-                    '• 모바일: 메뉴 → "홈 화면에 추가"';
+                    '• 또는 메뉴 (⋮) → "Slack 대시보드 설치..."';
                 return;
             }
             deferredPrompt.prompt();
-            deferredPrompt.userChoice.then(function(choice) {
-                if (choice.outcome === 'accepted') {
-                    console.log('설치 수락');
-                } else {
-                    console.log('설치 거부');
-                }
-                deferredPrompt = null;
-            });
+            deferredPrompt.userChoice.then(function() { deferredPrompt = null; });
         }
 
+        // ============================================================
         // 알림 권한 요청
+        // ============================================================
         function requestNotificationPermission() {
             var resultBox = document.getElementById('result');
 
@@ -410,15 +371,14 @@
                 resultBox.className = 'result-box error';
                 resultBox.innerHTML =
                     '❌ <strong>알림이 차단되어 있어요</strong><br>' +
-                    '브라우저 주소창 왼쪽 🔒 아이콘 클릭<br>' +
-                    '→ "알림" 설정을 "허용"으로 변경해주세요';
+                    '브라우저 주소창 왼쪽 🔒 아이콘 → "알림" → "허용"';
                 return;
             }
 
             Notification.requestPermission().then(function(permission) {
                 if (permission === 'granted') {
                     resultBox.className = 'result-box success';
-                    resultBox.innerHTML = '✅ <strong>알림 권한 허용됨!</strong><br>이제 새 메시지가 오면 알려드릴 수 있어요!';
+                    resultBox.innerHTML = '✅ <strong>알림 권한 허용됨!</strong>';
                     new Notification('💬 알림 허용 완료!', {
                         body: '이제 새 메시지를 실시간으로 알려드려요 🎉',
                         icon: 'icon-192.png'
@@ -426,12 +386,14 @@
                     updateNotifStatus();
                 } else {
                     resultBox.className = 'result-box info';
-                    resultBox.innerHTML = '⚠️ 알림이 허용되지 않았어요. 나중에 다시 시도해보세요.';
+                    resultBox.innerHTML = '⚠️ 알림이 허용되지 않았어요.';
                 }
             });
         }
 
-        // 알림 테스트
+        // ============================================================
+        // 기본 알림 테스트 (일반 Notification)
+        // ============================================================
         function testNotification() {
             var resultBox = document.getElementById('result');
 
@@ -443,11 +405,11 @@
 
             if (Notification.permission !== 'granted') {
                 resultBox.className = 'result-box error';
-                resultBox.innerHTML = '❌ 알림 권한이 없어요. 먼저 "🔔 알림 권한 허용하기" 버튼을 눌러주세요!';
+                resultBox.innerHTML = '❌ 알림 권한이 없어요. 먼저 "알림 권한 허용" 버튼을 눌러주세요!';
                 return;
             }
 
-            new Notification('💬 박기찬', {
+            new Notification('💬 홍길동', {
                 body: '안녕하세요! 테스트 메시지입니다 🎊\n알림이 잘 뜨나요?',
                 icon: 'icon-192.png',
                 badge: 'icon-192.png',
@@ -459,11 +421,70 @@
             resultBox.innerHTML =
                 '🔔 <strong>알림을 보냈어요!</strong><br>' +
                 '• 화면 우측 하단 확인<br>' +
-                '• 다른 앱 써도 뜨는지 확인<br>' +
-                '• 다른 탭으로 가서 다시 눌러보세요!';
+                '• 다른 앱 써도 뜨는지 확인';
         }
 
-        // 알림 상태 업데이트
+        // ============================================================
+        // Service Worker 알림 테스트 (앱 닫혀도 OK!)
+        // ============================================================
+        function testServiceWorkerNotification() {
+            var resultBox = document.getElementById('result');
+
+            if (Notification.permission !== 'granted') {
+                resultBox.className = 'result-box error';
+                resultBox.innerHTML = '❌ 알림 권한이 없어요. 먼저 "알림 권한 허용"을 눌러주세요!';
+                return;
+            }
+
+            if (!swRegistration) {
+                resultBox.className = 'result-box error';
+                resultBox.innerHTML = '❌ Service Worker가 등록되지 않았어요. 페이지를 새로고침(F5) 해주세요.';
+                return;
+            }
+
+            // Service Worker에 메시지 보내기
+            if (swRegistration.active) {
+                swRegistration.active.postMessage({
+                    type: 'TEST_NOTIFICATION',
+                    title: '⚡ Service Worker 알림!',
+                    body: '홍길동: 이 알림은 Service Worker가 보냈어요!\n앱 닫아도 이런 식으로 뜰 거예요 🎯'
+                });
+
+                resultBox.className = 'result-box success';
+                resultBox.innerHTML =
+                    '⚡ <strong>Service Worker 알림 전송!</strong><br>' +
+                    '• Service Worker가 직접 알림을 띄웠어요<br>' +
+                    '• 이 방식이 Push 알림의 기반이에요<br>' +
+                    '• 앱 닫아도 이런 식으로 알림 가능!';
+            } else {
+                resultBox.className = 'result-box error';
+                resultBox.innerHTML = '❌ Service Worker 활성화 대기 중. 잠시 후 다시 시도해주세요.';
+            }
+        }
+
+        // ============================================================
+        // 기본 테스트
+        // ============================================================
+        function testConnection() {
+            var resultBox = document.getElementById('result');
+            resultBox.className = 'result-box loading';
+            resultBox.innerHTML = '⏳ 테스트 중...';
+
+            setTimeout(function() {
+                var swStatus = swRegistration ? '✅ 활성화됨' : '⏳ 등록 중';
+                resultBox.className = 'result-box success';
+                resultBox.innerHTML =
+                    '✅ <strong>기본 테스트 성공!</strong><br>' +
+                    '• 페이지 로딩: 정상<br>' +
+                    '• CSS 스타일: 정상<br>' +
+                    '• JavaScript 동작: 정상<br>' +
+                    '• Service Worker: ' + swStatus;
+            }, 500);
+        }
+
+        // ============================================================
+        // 상태 업데이트
+        // ============================================================
         function updateNotifStatus() {
             var el = document.getElementById('notif');
             if (!el || typeof Notification === 'undefined') return;
@@ -476,25 +497,61 @@
             el.className = 'value ' + cls;
         }
 
-        // 기본 테스트
-        function testConnection() {
-            var resultBox = document.getElementById('result');
-            resultBox.className = 'result-box loading';
-            resultBox.innerHTML = '⏳ 테스트 중...';
-
-            setTimeout(function() {
-                resultBox.className = 'result-box success';
-                resultBox.innerHTML =
-                    '✅ <strong>기본 테스트 성공!</strong><br>' +
-                    '• 페이지 로딩: 정상<br>' +
-                    '• CSS 스타일: 정상<br>' +
-                    '• JavaScript 동작: 정상<br>' +
-                    '• 카톡 스타일 렌더링: 정상<br>' +
-                    '• PWA manifest: ' + (navigator.serviceWorker ? '✅ 준비됨' : '❌ 미지원');
-            }, 500);
+        function updateSwRegStatus(success, message) {
+            var el = document.getElementById('swReg');
+            if (success) {
+                el.textContent = '✅ ' + (message || '등록됨');
+                el.className = 'value ok';
+            } else {
+                el.textContent = '❌ ' + (message || '등록 실패');
+                el.className = 'value fail';
+            }
         }
 
+        // ============================================================
+        // Service Worker 등록
+        // ============================================================
+        function registerServiceWorker() {
+            if (!('serviceWorker' in navigator)) {
+                updateSwRegStatus(false, '브라우저 미지원');
+                return;
+            }
+
+            navigator.serviceWorker.register('sw.js')
+                .then(function(registration) {
+                    console.log('[App] SW 등록 성공:', registration.scope);
+                    swRegistration = registration;
+
+                    // 등록 상태 확인
+                    if (registration.active) {
+                        updateSwRegStatus(true, '활성 상태');
+                    } else if (registration.installing) {
+                        updateSwRegStatus(true, '설치 중...');
+                    } else if (registration.waiting) {
+                        updateSwRegStatus(true, '대기 중');
+                    }
+
+                    // 상태 변화 추적
+                    registration.addEventListener('updatefound', function() {
+                        var sw = registration.installing;
+                        if (sw) {
+                            sw.addEventListener('statechange', function() {
+                                if (sw.state === 'activated') {
+                                    updateSwRegStatus(true, '활성 상태');
+                                }
+                            });
+                        }
+                    });
+                })
+                .catch(function(error) {
+                    console.error('[App] SW 등록 실패:', error);
+                    updateSwRegStatus(false, error.message);
+                });
+        }
+
+        // ============================================================
         // 페이지 로드 시
+        // ============================================================
         window.addEventListener('load', function() {
             // 브라우저 확인
             var ua = navigator.userAgent;
@@ -509,28 +566,29 @@
             // 알림 권한
             updateNotifStatus();
 
-            // 서비스 워커
+            // 서비스 워커 지원 확인
             if ('serviceWorker' in navigator) {
                 document.getElementById('sw').textContent = '✅ 지원됨';
                 document.getElementById('sw').className = 'value ok';
+                registerServiceWorker();
             } else {
                 document.getElementById('sw').textContent = '❌ 지원 안함';
                 document.getElementById('sw').className = 'value fail';
+                updateSwRegStatus(false, '브라우저 미지원');
             }
 
-            // PWA 설치 가능 여부 (일부 브라우저는 즉시 판단 어려움)
-            var installableEl = document.getElementById('installable');
+            // PWA 설치 가능 여부
             setTimeout(function() {
+                var installableEl = document.getElementById('installable');
                 if (deferredPrompt) {
                     installableEl.textContent = '✅ 설치 가능!';
                     installableEl.className = 'value ok';
                 } else {
-                    // 이미 설치되었거나 iOS 등
                     if (window.matchMedia('(display-mode: standalone)').matches) {
                         installableEl.textContent = '✅ 이미 설치됨';
                         installableEl.className = 'value ok';
                     } else {
-                        installableEl.textContent = '⚠️ 주소창에서 설치 (Chrome)';
+                        installableEl.textContent = '⚠️ 주소창에서 설치';
                     }
                 }
             }, 2000);
