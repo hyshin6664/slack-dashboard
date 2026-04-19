@@ -2060,9 +2060,33 @@
                             lastTs = lastMsg.ts || '';
                         }
                         lines.push('  [' + i + '] id=' + p.id + ' name="' + p.name + '" type=' + p.type + ' minimized=' + p.minimized + ' msgs=' + msgCount + ' lastTs=' + lastTs);
+                        // [v3.3] DOM 상태 (위치/크기/가시성) 진단
+                        if (p.el) {
+                            var rect = p.el.getBoundingClientRect();
+                            var cs = window.getComputedStyle(p.el);
+                            var inViewport = (rect.left < window.innerWidth && rect.right > 0 && rect.top < window.innerHeight && rect.bottom > 0);
+                            lines.push('       DOM: x=' + Math.round(rect.left) + ' y=' + Math.round(rect.top) + ' w=' + Math.round(rect.width) + ' h=' + Math.round(rect.height) + ' z=' + cs.zIndex + ' display=' + cs.display + ' visibility=' + cs.visibility + ' opacity=' + cs.opacity + ' inViewport=' + inViewport);
+                        } else {
+                            lines.push('       DOM: ❌ p.el 없음 (DOM에 추가 안 됨!)');
+                        }
                     });
                     lines.push('');
                 }
+
+                // [v3.3] PWA/멀티윈도우 환경 진단
+                lines.push('[환경 상세]');
+                var isStandalone = false;
+                try {
+                    isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+                                   (window.matchMedia && window.matchMedia('(display-mode: window-controls-overlay)').matches) ||
+                                   (window.navigator && window.navigator.standalone === true);
+                } catch(e) {}
+                lines.push('  isPWA(standalone): ' + isStandalone);
+                lines.push('  viewport: ' + window.innerWidth + 'x' + window.innerHeight);
+                lines.push('  multi_window 패치됨: ' + (window.openSlackChatPopup && window.openSlackChatPopup._patched === true));
+                var bodyOverflow = window.getComputedStyle(document.body).overflow;
+                lines.push('  body.overflow: ' + bodyOverflow);
+                lines.push('');
 
                 // 폴링 상태
                 lines.push('[폴링 상태]');
