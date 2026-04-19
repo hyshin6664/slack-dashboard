@@ -277,11 +277,18 @@
     };
 
     // [v3.2] DOM 준비 상태에 따라 즉시/지연 실행 — window.onload 의존 제거
+    // 진단용 마커 (debugSlackApi에서 확인 가능하도록 전역에 기록)
+    window.__slackInitMarker = { registered: true, readyState: document.readyState, ranAt: null, error: null };
+    var __slackInitWrapped = function() {
+        window.__slackInitMarker.ranAt = new Date().toISOString();
+        try { __slackInitFn(); }
+        catch(e) { window.__slackInitMarker.error = e && e.message ? e.message : String(e); throw e; }
+    };
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', __slackInitFn);
+        document.addEventListener('DOMContentLoaded', __slackInitWrapped);
     } else {
         // 이미 DOM 로드됨 (동적 주입 케이스) → 다음 tick에 실행
-        setTimeout(__slackInitFn, 0);
+        setTimeout(__slackInitWrapped, 0);
     }
 
     // ============================================================

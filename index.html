@@ -34,13 +34,17 @@
     <script>
         (async function() {
             try {
+                // [v3.2] cache-bust: 매 로드마다 새 파일 받기 (PWA/SW 캐시 우회)
+                var __cb = '?v=' + Date.now();
+                var __fetchOpt = { cache: 'no-store' };
+
                 // 1. body.html 로드
-                const bodyRes = await fetch('body.html');
+                const bodyRes = await fetch('body.html' + __cb, __fetchOpt);
                 const bodyHtml = await bodyRes.text();
                 document.body.insertAdjacentHTML('beforeend', bodyHtml);
 
                 // 2. app.js 로드
-                const appRes = await fetch('app.js');
+                const appRes = await fetch('app.js' + __cb, __fetchOpt);
                 let appJs = await appRes.text();
                 appJs = appJs.replace(/<\/?script[^>]*>/g, '');
 
@@ -49,7 +53,7 @@
                 document.body.appendChild(scriptEl);
 
                 // 3. multi_window.js 로드 (PC 멀티윈도우 + 팝업 도우미)
-                const mwRes = await fetch('multi_window.js');
+                const mwRes = await fetch('multi_window.js' + __cb, __fetchOpt);
                 const mwJs = await mwRes.text();
                 const mwScript = document.createElement('script');
                 mwScript.textContent = mwJs;
