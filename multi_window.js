@@ -14,6 +14,17 @@
         return window.innerWidth < MOBILE_WIDTH;
     }
 
+    // [v3.3] PWA standalone 감지 — PWA에서는 window.open이 외부 브라우저로 빠지므로
+    //        인앱 플로팅 패널(_original)을 사용해야 함
+    function isPWA() {
+        try {
+            if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+            if (window.matchMedia && window.matchMedia('(display-mode: window-controls-overlay)').matches) return true;
+            if (window.navigator && window.navigator.standalone === true) return true;
+        } catch(e) {}
+        return false;
+    }
+
     function detectBrowser() {
         var ua = navigator.userAgent;
         var isMac = /Mac|iPhone|iPad|iPod/.test(ua);
@@ -134,6 +145,8 @@
         var original = window.openSlackChatPopup;
         window.openSlackChatPopup = function(type, id) {
             if (isMobile()) return original.apply(this, arguments);
+            // [v3.3] PWA에서는 OS 새 창이 안 떠서 인앱 플로팅 패널로 전환
+            if (isPWA()) return original.apply(this, arguments);
             if (type === 'canvas') return original.apply(this, arguments);
             if (type === 'friends') return original.apply(this, arguments);
             if (typeof id === 'string' && id.indexOf('__user_') === 0) return original.apply(this, arguments);
