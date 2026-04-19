@@ -30,7 +30,7 @@
         @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }
     </style>
 
-    <!-- body.html (HTML 구조) + app.js (JavaScript) 순서대로 로드 -->
+    <!-- body.html + app.js + multi_window.js 순서대로 로드 -->
     <script>
         (async function() {
             try {
@@ -39,23 +39,29 @@
                 const bodyHtml = await bodyRes.text();
                 document.body.insertAdjacentHTML('beforeend', bodyHtml);
 
-                // 2. app.js 로드 (script 태그 안에 있는 경우 대비)
+                // 2. app.js 로드
                 const appRes = await fetch('app.js');
                 let appJs = await appRes.text();
-                // <script> 태그가 있으면 제거 (순수 JS만 남기기)
                 appJs = appJs.replace(/<\/?script[^>]*>/g, '');
 
                 const scriptEl = document.createElement('script');
                 scriptEl.textContent = appJs;
                 document.body.appendChild(scriptEl);
 
-                // 3. 로딩 화면 제거
+                // 3. multi_window.js 로드 (PC 멀티윈도우 + 팝업 도우미)
+                const mwRes = await fetch('multi_window.js');
+                const mwJs = await mwRes.text();
+                const mwScript = document.createElement('script');
+                mwScript.textContent = mwJs;
+                document.body.appendChild(mwScript);
+
+                // 4. 로딩 화면 제거
                 setTimeout(() => {
                     const loading = document.getElementById('loading');
                     if (loading) loading.style.display = 'none';
                 }, 500);
 
-                // 4. Service Worker 등록 (알림용)
+                // 5. Service Worker 등록 (알림용)
                 if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.register('sw.js').catch(e => console.log('SW 등록 실패:', e));
                 }
