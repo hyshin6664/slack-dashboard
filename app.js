@@ -828,7 +828,7 @@
             popupEl.style.setProperty('border-radius', '0', 'important');
             popupEl.style.setProperty('transform', 'none', 'important');
             popupEl.classList.add('slack-popup-fullscreen');
-            // [v3.3] 풀스크린 모드에서 뒤로가기/닫기 버튼 주입
+            // [v3.3] 풀스크린 모드에서 뒤로가기/닫기 + 진단 버튼 주입
             // - 자식 창이면 "✕ 창 닫기" (OS 창 닫기)
             // - 메인 창이면 "← 목록" (대화 목록으로)
             var __isChildWin = false;
@@ -848,6 +848,19 @@
                     }
                 });
                 popupEl.appendChild(backBtn);
+            }
+            // [v3.3] 풀스크린 모드에서도 진단 버튼 접근 가능하게
+            if (!popupEl.querySelector('.slack-popup-diag-btn')) {
+                var diagBtn = document.createElement('button');
+                diagBtn.className = 'slack-popup-diag-btn';
+                diagBtn.innerHTML = '🔍';
+                diagBtn.title = '진단 (Slack 상태 점검)';
+                diagBtn.style.cssText = 'position:absolute;top:10px;right:50px;z-index:10;padding:6px 10px;background:rgba(254,224,71,0.95);border:1px solid #e2e8f0;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.1);';
+                diagBtn.addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    if (typeof runSlackDiagnostics === 'function') runSlackDiagnostics();
+                });
+                popupEl.appendChild(diagBtn);
             }
         } else {
             // [v0.5] 데스크톱 일반 브라우저: 오른쪽에서 열림
