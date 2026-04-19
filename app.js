@@ -1,5 +1,83 @@
 <script>
     // ============================================================
+    // [v3.2] google.script.run → JSONP 어댑터 (GitHub Pages용)
+    // ============================================================
+    // GitHub Pages는 Apps Script HtmlService 외부이므로 google.script.run이 없음.
+    // 동일한 호출 문법 그대로 JSONP로 변환해서 /exec 호출.
+    // 기존 클라이언트 코드(아래)는 한 줄도 수정하지 않아도 됨.
+    // ============================================================
+    (function() {
+        var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw8fLY8VSJLmYZJ1rcPtcDgQ3j-fJSci8PuYwX12U_fg52atFWaXsmIGZHiV2gWnjRCrg/exec';
+
+        function jsonpCall(action, args, onSuccess, onFailure) {
+            var cbName = '_gsr_' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+            var timeoutId = setTimeout(function() {
+                cleanup();
+                if (onFailure) onFailure('timeout: ' + action);
+            }, 30000);
+            function cleanup() {
+                clearTimeout(timeoutId);
+                try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+                var s = document.getElementById(cbName);
+                if (s && s.parentNode) s.parentNode.removeChild(s);
+            }
+            window[cbName] = function(result) {
+                cleanup();
+                if (onSuccess) {
+                    try { onSuccess(result); } catch(e) { console.error('[gsr success cb]', action, e); }
+                }
+            };
+            var script = document.createElement('script');
+            script.id = cbName;
+            script.onerror = function() {
+                cleanup();
+                if (onFailure) onFailure('network error: ' + action);
+            };
+            try {
+                script.src = APPS_SCRIPT_URL +
+                    '?action=' + encodeURIComponent(action) +
+                    '&args=' + encodeURIComponent(JSON.stringify(args || [])) +
+                    '&callback=' + cbName;
+            } catch(e) {
+                cleanup();
+                if (onFailure) onFailure('arg encode fail: ' + e.message);
+                return;
+            }
+            document.body.appendChild(script);
+        }
+
+        function makeRunner(success, failure) {
+            return new Proxy({}, {
+                get: function(_, prop) {
+                    if (prop === 'withSuccessHandler') {
+                        return function(cb) { return makeRunner(cb, failure); };
+                    }
+                    if (prop === 'withFailureHandler') {
+                        return function(cb) { return makeRunner(success, cb); };
+                    }
+                    if (prop === 'withUserObject') {
+                        return function() { return makeRunner(success, failure); };
+                    }
+                    // terminal call: google.script.run.fnName(arg1, arg2)
+                    return function() {
+                        var args = Array.prototype.slice.call(arguments);
+                        jsonpCall(prop, args, success, failure);
+                    };
+                }
+            });
+        }
+
+        // HtmlService 안에서 진짜 google.script.run이 있으면 그대로 사용,
+        // 외부(GitHub Pages)면 JSONP 어댑터 주입.
+        if (typeof window.google === 'undefined' || !window.google.script || !window.google.script.run) {
+            window.google = window.google || {};
+            window.google.script = window.google.script || {};
+            window.google.script.run = makeRunner(null, null);
+            console.log('[v3.2] google.script.run JSONP 어댑터 활성화 (GitHub Pages 모드)');
+        }
+    })();
+
+    // ============================================================
     // [v0.2] 개인대시보드 Slack - 카카오톡 스타일 UI
     // ============================================================
     // OAuth 연동 전 UI 확인용. 더미 데이터 기반.
