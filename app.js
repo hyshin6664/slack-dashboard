@@ -806,12 +806,31 @@
         // 팝업 DOM 생성
         var popupEl = buildPopupDom(type, id, data);
         document.getElementById('slackPopupContainer').appendChild(popupEl);
-        // [v0.5] 초기 위치: 오른쪽에서 열림 (사용자 요청)
-        var offset = openSlackPopups.length * 32;
-        var rightPos = window.innerWidth - 360 - 40 - offset; // 360 popup width + 40 right margin
-        if (rightPos < 560) rightPos = 560; // 메인 레이아웃(520+20 여유)과 겹치지 않게
-        popupEl.style.left = rightPos + 'px';
-        popupEl.style.top = (90 + offset) + 'px';
+        // [v3.3] PWA/좁은 화면 감지 — 전체화면으로 덮기 (카톡 대화방 스타일)
+        var __isPWA = false;
+        try {
+            __isPWA = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+                      (window.matchMedia && window.matchMedia('(display-mode: window-controls-overlay)').matches) ||
+                      (window.navigator && window.navigator.standalone === true);
+        } catch(e) {}
+        var __narrowViewport = window.innerWidth < 768;
+        if (__isPWA || __narrowViewport) {
+            // 전체화면 — 메인 레이아웃 덮기
+            popupEl.style.left = '0px';
+            popupEl.style.top = '0px';
+            popupEl.style.width = '100vw';
+            popupEl.style.height = '100vh';
+            popupEl.style.maxWidth = 'none';
+            popupEl.style.maxHeight = 'none';
+            popupEl.style.borderRadius = '0';
+        } else {
+            // [v0.5] 데스크톱 일반 브라우저: 오른쪽에서 열림
+            var offset = openSlackPopups.length * 32;
+            var rightPos = window.innerWidth - 360 - 40 - offset;
+            if (rightPos < 560) rightPos = 560;
+            popupEl.style.left = rightPos + 'px';
+            popupEl.style.top = (90 + (openSlackPopups.length * 32)) + 'px';
+        }
         popupEl.style.zIndex = (++nextSlackPopupZ);
         var popupState = {
             id: id, type: type, name: data.name, data: data,
