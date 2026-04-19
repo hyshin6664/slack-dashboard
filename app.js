@@ -823,6 +823,19 @@
             popupEl.style.maxWidth = 'none';
             popupEl.style.maxHeight = 'none';
             popupEl.style.borderRadius = '0';
+            // [v3.3] 풀스크린 모드에서 "← 목록으로" 뒤로가기 버튼 주입
+            if (!popupEl.querySelector('.slack-popup-back-btn')) {
+                var backBtn = document.createElement('button');
+                backBtn.className = 'slack-popup-back-btn';
+                backBtn.innerHTML = '← 목록';
+                backBtn.title = '대화 목록으로 돌아가기';
+                backBtn.style.cssText = 'position:absolute;top:10px;left:10px;z-index:10;padding:6px 12px;background:rgba(255,255,255,0.95);border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1e293b;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.1);';
+                backBtn.addEventListener('click', function(ev) {
+                    ev.stopPropagation();
+                    closeSlackPopup(id);
+                });
+                popupEl.appendChild(backBtn);
+            }
         } else {
             // [v0.5] 데스크톱 일반 브라우저: 오른쪽에서 열림
             var offset = openSlackPopups.length * 32;

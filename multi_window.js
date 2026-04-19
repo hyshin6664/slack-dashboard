@@ -122,15 +122,18 @@
         var url = window.location.pathname + '?chat=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type);
         var left = Math.max(0, (window.screen.width - CHAT_WIN_WIDTH) / 2);
         var top = Math.max(0, (window.screen.height - CHAT_WIN_HEIGHT) / 2);
-        var features = 'width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes';
+        // [v3.3] 'popup' 키워드 추가 — Chrome PWA에서 새 PWA 창으로 띄우기 위해 필요
+        var features = 'popup,width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes';
         var winName = 'slack_chat_' + id;
-        var popup = window.open(url, winName, features);
+        var popup = null;
+        try { popup = window.open(url, winName, features); } catch(e) { popup = null; }
         if (isPopupBlocked(popup)) {
-            showHelpModal();
+            // PWA에서는 도움말 모달 대신 조용히 인앱 fallback (showHelpModal은 데스크톱 브라우저에서만)
+            if (!isPWA()) showHelpModal();
             return false;
         }
         setTimeout(function() {
-            if (popup && popup.closed) showHelpModal();
+            if (popup && popup.closed && !isPWA()) showHelpModal();
         }, POPUP_CHECK_DELAY);
         try { popup.focus(); } catch(e) {}
         return true;
@@ -145,8 +148,7 @@
         var original = window.openSlackChatPopup;
         window.openSlackChatPopup = function(type, id) {
             if (isMobile()) return original.apply(this, arguments);
-            // [v3.3] PWA에서는 OS 새 창이 안 떠서 인앱 플로팅 패널로 전환
-            if (isPWA()) return original.apply(this, arguments);
+            // [v3.3] PWA에서도 window.open 시도 — Chrome PWA는 'popup' feature로 새 PWA 창 생성 가능
             if (type === 'canvas') return original.apply(this, arguments);
             if (type === 'friends') return original.apply(this, arguments);
             if (typeof id === 'string' && id.indexOf('__user_') === 0) return original.apply(this, arguments);
