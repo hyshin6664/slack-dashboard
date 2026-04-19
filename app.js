@@ -218,7 +218,9 @@
             .getSlackAuthUrl();
     }
 
-    window.onload = function() {
+    // [v3.2] GitHub Pages는 app.js를 동적 fetch로 주입하므로 window.onload가 이미 지난 시점.
+    // → 그래서 init을 즉시(또는 DOM 준비 후) 실행해야 함. 둘 다 등록.
+    var __slackInitFn = function() {
         try {
             // [v0.9] 즉시 스켈레톤 표시 (빈 화면 금지!)
             showSlackLoadingSkeleton();
@@ -273,6 +275,14 @@
             console.error('Slack 초기화 오류:', e);
         }
     };
+
+    // [v3.2] DOM 준비 상태에 따라 즉시/지연 실행 — window.onload 의존 제거
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', __slackInitFn);
+    } else {
+        // 이미 DOM 로드됨 (동적 주입 케이스) → 다음 tick에 실행
+        setTimeout(__slackInitFn, 0);
+    }
 
     // ============================================================
     // 탭 전환
