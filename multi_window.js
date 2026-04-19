@@ -120,15 +120,30 @@
     function tryOpenChatWindow(type, id) {
         window._lastBlockedChat = { type: type, id: id };
         var url = window.location.pathname + '?chat=' + encodeURIComponent(id) + '&type=' + encodeURIComponent(type);
-        var left = Math.max(0, (window.screen.width - CHAT_WIN_WIDTH) / 2);
-        var top = Math.max(0, (window.screen.height - CHAT_WIN_HEIGHT) / 2);
-        // [v3.3] 'popup' 키워드 추가 — Chrome PWA에서 새 PWA 창으로 띄우기 위해 필요
-        var features = 'popup,width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes';
+
+        // [v3.3] 메인 창 오른쪽에 나란히 (카톡 스타일). 화면 밖이면 여러 열로 stacking.
+        var mainW = window.outerWidth || window.innerWidth || 0;
+        var screenW = window.screen.availWidth || window.screen.width;
+        var screenH = window.screen.availHeight || window.screen.height;
+        var winCount = (window._openedChatWins = (window._openedChatWins || 0) + 1);
+        var baseLeft = (window.screenX || 0) + mainW + 10;
+        var baseTop = (window.screenY || 0);
+        // 너무 오른쪽이면 화면 안으로 되돌리기
+        if (baseLeft + CHAT_WIN_WIDTH > screenW) {
+            baseLeft = screenW - CHAT_WIN_WIDTH - 20;
+        }
+        // 여러 개 열면 조금씩 어긋나게
+        var offset = ((winCount - 1) % 5) * 30;
+        var finalLeft = Math.max(0, baseLeft + offset);
+        var finalTop = Math.max(0, baseTop + offset);
+        if (finalTop + CHAT_WIN_HEIGHT > screenH) finalTop = Math.max(0, screenH - CHAT_WIN_HEIGHT - 20);
+
+        // [v3.3] 'popup' 키워드 — Chrome PWA에서 새 PWA 창으로 띄우기 위해 필요
+        var features = 'popup,width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + finalLeft + ',top=' + finalTop + ',resizable=yes,scrollbars=yes';
         var winName = 'slack_chat_' + id;
         var popup = null;
         try { popup = window.open(url, winName, features); } catch(e) { popup = null; }
         if (isPopupBlocked(popup)) {
-            // PWA에서는 도움말 모달 대신 조용히 인앱 fallback (showHelpModal은 데스크톱 브라우저에서만)
             if (!isPWA()) showHelpModal();
             return false;
         }
@@ -205,6 +220,19 @@
                                 popup.style.width = '100%';
                                 popup.style.height = '100%';
                                 popup.style.borderRadius = '0';
+                            }
+                            // [v3.3] 자식 창의 X/뒤로가기/최소화는 창 자체를 닫기
+                            var origClose = window.closeSlackPopup;
+                            window.closeSlackPopup = function(pid) {
+                                try { if (origClose) origClose.call(window, pid); } catch(e) {}
+                                setTimeout(function() { try { window.close(); } catch(e) {} }, 50);
+                            };
+                            var origMinimize = window.toggleSlackPopupMinimize;
+                            if (origMinimize) {
+                                window.toggleSlackPopupMinimize = function(pid) {
+                                    // 자식 창에서는 최소화 = OS 창 최소화
+                                    try { window.blur(); } catch(e) {}
+                                };
                             }
                         }, 300);
                     } catch(e) { console.error('[multi-window] 자식 창 오류:', e); }

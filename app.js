@@ -823,16 +823,24 @@
             popupEl.style.maxWidth = 'none';
             popupEl.style.maxHeight = 'none';
             popupEl.style.borderRadius = '0';
-            // [v3.3] 풀스크린 모드에서 "← 목록으로" 뒤로가기 버튼 주입
+            // [v3.3] 풀스크린 모드에서 뒤로가기/닫기 버튼 주입
+            // - 자식 창이면 "✕ 창 닫기" (OS 창 닫기)
+            // - 메인 창이면 "← 목록" (대화 목록으로)
+            var __isChildWin = false;
+            try { __isChildWin = !!(new URLSearchParams(window.location.search)).get('chat'); } catch(e) {}
             if (!popupEl.querySelector('.slack-popup-back-btn')) {
                 var backBtn = document.createElement('button');
                 backBtn.className = 'slack-popup-back-btn';
-                backBtn.innerHTML = '← 목록';
-                backBtn.title = '대화 목록으로 돌아가기';
+                backBtn.innerHTML = __isChildWin ? '✕ 창 닫기' : '← 목록';
+                backBtn.title = __isChildWin ? '이 대화창 닫기' : '대화 목록으로 돌아가기';
                 backBtn.style.cssText = 'position:absolute;top:10px;left:10px;z-index:10;padding:6px 12px;background:rgba(255,255,255,0.95);border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1e293b;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.1);';
                 backBtn.addEventListener('click', function(ev) {
                     ev.stopPropagation();
-                    closeSlackPopup(id);
+                    if (__isChildWin) {
+                        try { window.close(); } catch(e) { closeSlackPopup(id); }
+                    } else {
+                        closeSlackPopup(id);
+                    }
                 });
                 popupEl.appendChild(backBtn);
             }
