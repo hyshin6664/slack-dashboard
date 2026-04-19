@@ -138,11 +138,16 @@
         var finalTop = Math.max(0, baseTop + offset);
         if (finalTop + CHAT_WIN_HEIGHT > screenH) finalTop = Math.max(0, screenH - CHAT_WIN_HEIGHT - 20);
 
-        // [v3.3] 'popup' 키워드 — Chrome PWA에서 새 PWA 창으로 띄우기 위해 필요
-        var features = 'popup,width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + finalLeft + ',top=' + finalTop + ',resizable=yes,scrollbars=yes';
+        // [v3.3] noopener + popup — 별도 프로세스 강제로 PWA 제약 우회 시도
+        //   Chrome docs: noopener는 separate renderer process 생성 유도
+        var features = 'noopener,popup,width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + finalLeft + ',top=' + finalTop + ',resizable=yes,scrollbars=yes';
         var winName = 'slack_chat_' + id;
         var popup = null;
         try { popup = window.open(url, winName, features); } catch(e) { popup = null; }
+        // noopener 실패 시 noopener 없이 재시도
+        if (isPopupBlocked(popup)) {
+            try { popup = window.open(url, winName, features.replace('noopener,', '')); } catch(e) { popup = null; }
+        }
         if (isPopupBlocked(popup)) {
             if (!isPWA()) showHelpModal();
             return false;

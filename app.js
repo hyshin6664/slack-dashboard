@@ -815,14 +815,19 @@
         } catch(e) {}
         var __narrowViewport = window.innerWidth < 768;
         if (__isPWA || __narrowViewport) {
-            // 전체화면 — 메인 레이아웃 덮기
-            popupEl.style.left = '0px';
-            popupEl.style.top = '0px';
-            popupEl.style.width = '100vw';
-            popupEl.style.height = '100vh';
-            popupEl.style.maxWidth = 'none';
-            popupEl.style.maxHeight = 'none';
-            popupEl.style.borderRadius = '0';
+            // [v3.3] 전체화면 — CSS가 inline을 덮어쓸 수 있으므로 !important 강제
+            popupEl.style.setProperty('position', 'fixed', 'important');
+            popupEl.style.setProperty('left', '0', 'important');
+            popupEl.style.setProperty('top', '0', 'important');
+            popupEl.style.setProperty('right', '0', 'important');
+            popupEl.style.setProperty('bottom', '0', 'important');
+            popupEl.style.setProperty('width', '100vw', 'important');
+            popupEl.style.setProperty('height', '100vh', 'important');
+            popupEl.style.setProperty('max-width', 'none', 'important');
+            popupEl.style.setProperty('max-height', 'none', 'important');
+            popupEl.style.setProperty('border-radius', '0', 'important');
+            popupEl.style.setProperty('transform', 'none', 'important');
+            popupEl.classList.add('slack-popup-fullscreen');
             // [v3.3] 풀스크린 모드에서 뒤로가기/닫기 버튼 주입
             // - 자식 창이면 "✕ 창 닫기" (OS 창 닫기)
             // - 메인 창이면 "← 목록" (대화 목록으로)

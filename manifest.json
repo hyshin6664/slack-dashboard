@@ -4,6 +4,10 @@
   "description": "회사 Slack을 카톡처럼 가볍게 쓰는 대시보드",
   "start_url": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
   "background_color": "#fef033",
   "theme_color": "#fef033",
   "orientation": "portrait",
