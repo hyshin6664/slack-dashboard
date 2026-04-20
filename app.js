@@ -2348,7 +2348,24 @@
                 lines.push('  화면 포커스: ' + (document.hasFocus() ? 'YES' : 'NO'));
                 lines.push('  페이지 가시성: ' + document.visibilityState);
                 lines.push('  누적 알림 수(이번 세션): ' + (window.__slackTotalAlerts || 0));
+                lines.push('  Events API 폴링: 호출 ' + (window.__slackEventApiCallCount || 0) + '회 / 응답 ' + (window.__slackEventApiRespCount || 0) + '회 / hit ' + (window.__slackEventApiHitCount || 0) + '회');
                 lines.push('  마지막 Events API 응답: ' + (window.__slackLastAlertAt ? new Date(window.__slackLastAlertAt).toLocaleTimeString() : 'never'));
+                lines.push('  마지막 활성 채널: ' + (window.__slackLastEventChannels || '없음'));
+                // [v3.4] 서버 doPost 통계 (Events API가 실제로 작동하는지 확인)
+                try {
+                    if (window.__slackServerEventStats) {
+                        var s = window.__slackServerEventStats;
+                        lines.push('  [서버] doPost 호출: ' + (s.doPostCount || 0) + '회 (마지막: ' + (s.doPostLastAgo || 'never') + ')');
+                        lines.push('  [서버] 마지막 이벤트 타입: ' + (s.doPostLastType || '없음'));
+                        lines.push('  [서버] 활성 채널 캐시: ' + (s.activeChannelsCount || 0) + '개');
+                    } else {
+                        lines.push('  [서버] doPost 통계: 확인 중... (다음 진단에서 표시)');
+                        // 비동기로 가져와서 다음 진단에 표시
+                        google.script.run
+                            .withSuccessHandler(function(r) { window.__slackServerEventStats = r; })
+                            .getEventApiStats();
+                    }
+                } catch(e) {}
                 lines.push('  탭 깜빡임 상태: ' + (tabFlashInterval ? 'active' : 'off'));
                 lines.push('  탭 깜빡임 큐: ' + tabFlashMessages.length + '개');
                 var toastCards = document.querySelectorAll('#slackInAppToast .toast-card');
@@ -2767,12 +2784,19 @@
         slackCacheInterval = setInterval(function() {
             if (!slackRealMode) return;
             // [v3.4] 전역: Events API로 받은 "모든 활성 채널" 가져오기 → 닫힌 대화도 알림!
+            window.__slackEventApiCallCount = (window.__slackEventApiCallCount || 0) + 1;
             google.script.run
                 .withSuccessHandler(function(res) {
+                    // [v3.4] 빈 응답이어도 마지막 응답 시각 기록 (진단용)
+                    window.__slackLastAlertAt = Date.now();
+                    window.__slackEventApiRespCount = (window.__slackEventApiRespCount || 0) + 1;
                     if (!res || !res.success) return;
                     var channels = res.channels || [];
+                    if (channels.length > 0) {
+                        window.__slackEventApiHitCount = (window.__slackEventApiHitCount || 0) + 1;
+                        window.__slackLastEventChannels = channels.join(',');
+                    }
                     if (channels.length === 0) return;
-                    window.__slackLastAlertAt = Date.now();
                     channels.forEach(function(chId) {
                         // 열린 팝업이면 메시지 갱신
                         var popup = findPopup(chId);
