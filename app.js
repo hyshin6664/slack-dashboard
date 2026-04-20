@@ -438,8 +438,9 @@
         }) : src.slice();
         // [v3.4 #8] 초기 로드 중(첫 배치 전)에는 timeRaw 있는 것만 표시
         //   → 처음부터 최신순 정렬된 상태로 노출, 재정렬/깜빡임 없음
-        //   (친구 탭은 timeRaw 개념 없음 — 제외)
-        if (currentSlackTab !== 'friends' && window.__slackInitialPreviewsLoaded === false) {
+        //   [v3.5.2 fix] DM 탭에만 적용 — 채널/캔버스는 모두 표시
+        //     (채널은 최근 메시지 없으면 가려져서 "대화 없음"이 되는 버그)
+        if (currentSlackTab === 'dm' && window.__slackInitialPreviewsLoaded === false) {
             filtered = filtered.filter(function(item) {
                 return (item.timeRaw || 0) > 0 || (item.unread || 0) > 0;
             });
