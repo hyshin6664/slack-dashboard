@@ -2850,6 +2850,7 @@
                     window.__slackLastUnreadAt = Date.now();
                     if (!res || !res.success) return;
                     var items = res.items || [];
+                    var listChanged = false;
                     items.forEach(function(it) {
                         var prev = slackLastUnreadMap[it.id];
                         // 신호: unread 증가 OR latestTs 더 최신
@@ -2861,11 +2862,36 @@
                             else if (it.latestTs && prev.latestTs && parseFloat(it.latestTs) > parseFloat(prev.latestTs)) isNew = true;
                         }
                         slackLastUnreadMap[it.id] = { unread: it.unread || 0, latestTs: it.latestTs || '' };
+                        // [v3.5] 서버의 unread 값을 클라이언트 리스트에 동기화 → 빨간 배지 표시
+                        var serverUnread = it.unread || 0;
+                        for (var i = 0; i < dummyDMs.length; i++) {
+                            if (dummyDMs[i].id === it.id) {
+                                if (dummyDMs[i].unread !== serverUnread) {
+                                    dummyDMs[i].unread = serverUnread;
+                                    listChanged = true;
+                                }
+                                break;
+                            }
+                        }
+                        for (var j = 0; j < dummyChannels.length; j++) {
+                            if (dummyChannels[j].id === it.id) {
+                                if (dummyChannels[j].unread !== serverUnread) {
+                                    dummyChannels[j].unread = serverUnread;
+                                    listChanged = true;
+                                }
+                                break;
+                            }
+                        }
                         if (isNew) {
                             // 채널 이름/미리보기 가져와 알림 발사
                             _slackFireAlertForChannel(it.id, it.latestTs);
                         }
                     });
+                    // 변화 있을 때만 리렌더 (DOM 부하 최소화)
+                    if (listChanged) {
+                        try { renderSlackChatList(); } catch(e) {}
+                        try { updateTabCounts(); } catch(e) {}
+                    }
                 })
                 .withFailureHandler(function(err) {
                     slackUnreadErrorStreak++;
