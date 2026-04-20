@@ -2206,41 +2206,50 @@
 
     function showDesktopNotification(title, body) {
         if (typeof Notification === 'undefined') return;
-        if (Notification.permission === 'granted') {
-            // [v3.4] PWA 환경에서는 Service Worker를 통해 알림 표시 — 더 안정적
-            //   PWA standalone 모드에서는 new Notification()이 작동 안 할 때가 있음
+        if (Notification.permission !== 'granted') {
+            if (Notification.permission !== 'denied') Notification.requestPermission();
+            return;
+        }
+        // [v3.4.2] SW 컨트롤러 활성 여부 확인 후 최적 경로 선택
+        //   - controller 활성 + PWA: SW 통해 알림 (가장 안정)
+        //   - 그 외: new Notification() 직접 (권장 API, 폴백으로 확실)
+        var opts = {
+            body: body,
+            icon: 'icon-192.png',
+            badge: 'icon-192.png',
+            tag: 'slack-msg',
+            requireInteraction: true,
+            silent: false,
+            data: { url: location.href, title: title }
+        };
+        var swActive = ('serviceWorker' in navigator) && navigator.serviceWorker.controller;
+        if (swActive) {
             try {
-                if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
-                    navigator.serviceWorker.ready.then(function(reg) {
-                        reg.showNotification('💬 ' + title, {
-                            body: body,
-                            icon: 'icon-192.png',
-                            badge: 'icon-192.png',
-                            tag: 'slack-msg',
-                            requireInteraction: true,
-                            silent: false,
-                            data: { url: location.href, title: title }
-                        });
-                    }).catch(function() {
-                        // SW 실패 시 일반 Notification fallback
-                        try {
-                            var n = new Notification('💬 ' + title, {
-                                body: body, tag: 'slack-msg',
-                                requireInteraction: true, silent: false
-                            });
-                            n.onclick = function() { window.focus(); stopTabFlash(); n.close(); };
-                        } catch(e2) {}
-                    });
-                } else {
-                    var n = new Notification('💬 ' + title, {
-                        body: body, tag: 'slack-msg',
-                        requireInteraction: true, silent: false
-                    });
-                    n.onclick = function() { window.focus(); stopTabFlash(); n.close(); };
-                }
+                navigator.serviceWorker.ready.then(function(reg) {
+                    return reg.showNotification('💬 ' + title, opts);
+                }).catch(function(err) {
+                    // SW 실패 시 new Notification fallback
+                    _showDesktopNotificationFallback(title, body);
+                });
+                return;
             } catch(e) {}
-        } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission();
+        }
+        // SW 컨트롤러 비활성이거나 SW 미지원 → 바로 new Notification
+        _showDesktopNotificationFallback(title, body);
+    }
+    function _showDesktopNotificationFallback(title, body) {
+        try {
+            var n = new Notification('💬 ' + title, {
+                body: body,
+                icon: 'icon-192.png',
+                tag: 'slack-msg',
+                requireInteraction: true,
+                silent: false
+            });
+            n.onclick = function() { window.focus(); stopTabFlash(); n.close(); };
+        } catch(e) {
+            // 최후의 수단 — 옵션 빼고 기본만
+            try { new Notification('💬 ' + title); } catch(e2) {}
         }
     }
 
@@ -2643,38 +2652,41 @@
 
     // [v3.0] 알림 테스트 버튼
     function testSlackNotification() {
-        // [v3.4] 로컬 테스트 + 서버 Events API 시뮬레이션 통합
-        //   1) 로컬: 탭 깜빡임 + 토스트 + 데스크톱 알림 (시스템 레벨 알림 검증)
-        //   2) 서버: 가짜 이벤트 주입 → 3초 내 폴링이 감지 → 알림 뜨는지 확인
-        //   (Events API 설정 문제 여부 진단 가능)
-
-        // 1) 로컬 알림 즉시
+        // [v3.4.2] 알림 시스템 end-to-end 검증
+        //   단계별로 각 알림 방식을 순차 발사 → 라이악마님이 어느 게 뜨고 어느 게 안 뜨는지 직접 확인
         var origHasFocus = document.hasFocus;
         document.hasFocus = function() { return false; };
-        startTabFlash('박기찬', '[로컬 테스트] 알림 확인!');
-        try { showInAppToast('박기찬', '[로컬 테스트] 좌측 하단 토스트 확인!', ''); } catch(e) {}
-        setTimeout(function() { document.hasFocus = origHasFocus; }, 100);
 
-        // 2) 서버에 가짜 이벤트 주입 (첫 번째 DM 채널에)
-        if (slackRealMode && dummyDMs.length > 0) {
-            var targetCh = dummyDMs[0].id;
-            var targetName = dummyDMs[0].name || 'tester';
-            showToast('📤 서버에 가짜 이벤트 주입 중...');
-            google.script.run
-                .withSuccessHandler(function(r) {
-                    if (r && r.success) {
-                        showToast('✅ 가짜 이벤트 주입됨! 3초 내 2번째 알림 뜨는지 확인하세요 (' + targetName + ')');
-                    } else {
-                        showToast('❌ 서버 이벤트 주입 실패: ' + (r ? r.error : '응답 없음'));
-                    }
-                })
-                .withFailureHandler(function(err) {
-                    showToast('❌ 서버 호출 실패: ' + err);
-                })
-                .simulateSlackEvent(targetCh, targetName, '[서버 시뮬레이션] 3초 내 알림 떠야 정상!');
-        } else {
-            showToast('🔔 로컬 알림 테스트 완료 (서버 테스트는 Slack 연결 후 가능)');
-        }
+        // 1단계 (즉시): 탭 깜빡임 — 가장 단순한 알림
+        showToast('1/4: 탭 제목 깜빡임 테스트');
+        startTabFlash('테스트', '1단계: 탭 깜빡임');
+
+        // 2단계 (0.5초 뒤): 좌측 하단 인앱 토스트
+        setTimeout(function() {
+            showToast('2/4: 좌측 하단 토스트 테스트');
+            try { showInAppToast('테스트 친구', '2단계: 좌측 하단 카드 보이나요?', ''); } catch(e) {}
+            window.__slackTotalAlerts = (window.__slackTotalAlerts || 0) + 1;
+        }, 500);
+
+        // 3단계 (1초 뒤): 데스크톱 알림 (SW 또는 Notification API)
+        setTimeout(function() {
+            showToast('3/4: 데스크톱(Windows) 알림 테스트 — 우측 하단 확인');
+            try { showDesktopNotification('테스트 친구', '3단계: 우측 하단에 뜨나요?'); } catch(e) {}
+        }, 1000);
+
+        // 4단계 (1.5초 뒤): 소리
+        setTimeout(function() {
+            showToast('4/4: 알림 소리');
+            try { playSlackDing(); } catch(e) {}
+        }, 1500);
+
+        // 포커스 복원
+        setTimeout(function() { document.hasFocus = origHasFocus; }, 200);
+
+        // 최종 요약
+        setTimeout(function() {
+            showToast('✅ 테스트 완료! 안 뜬 알림이 있으면 알려주세요 (진단에 상세 정보 있어요)');
+        }, 2500);
     }
 
     // addMessageToChat에서 알림 호출하도록 수정은 이미 있음.
