@@ -2210,9 +2210,8 @@
             if (Notification.permission !== 'denied') Notification.requestPermission();
             return;
         }
-        // [v3.4.2] SW 컨트롤러 활성 여부 확인 후 최적 경로 선택
-        //   - controller 활성 + PWA: SW 통해 알림 (가장 안정)
-        //   - 그 외: new Notification() 직접 (권장 API, 폴백으로 확실)
+        // [v3.4.3] Chrome PWA standalone은 new Notification() 차단 —
+        //   SW registration이 있으면 controller 비활성이어도 registration.showNotification 사용
         var opts = {
             body: body,
             icon: 'icon-192.png',
@@ -2222,20 +2221,23 @@
             silent: false,
             data: { url: location.href, title: title }
         };
-        var swActive = ('serviceWorker' in navigator) && navigator.serviceWorker.controller;
-        if (swActive) {
-            try {
-                navigator.serviceWorker.ready.then(function(reg) {
+        if ('serviceWorker' in navigator) {
+            // getRegistration은 controller 비활성이어도 등록된 SW 반환
+            navigator.serviceWorker.getRegistration().then(function(reg) {
+                if (reg && reg.active) {
                     return reg.showNotification('💬 ' + title, opts);
-                }).catch(function(err) {
-                    // SW 실패 시 new Notification fallback
-                    _showDesktopNotificationFallback(title, body);
+                }
+                // registration 아직 active 아님 → ready 대기
+                return navigator.serviceWorker.ready.then(function(r) {
+                    return r.showNotification('💬 ' + title, opts);
                 });
-                return;
-            } catch(e) {}
+            }).catch(function(err) {
+                // SW 경로 완전 실패 → 마지막 수단
+                _showDesktopNotificationFallback(title, body);
+            });
+        } else {
+            _showDesktopNotificationFallback(title, body);
         }
-        // SW 컨트롤러 비활성이거나 SW 미지원 → 바로 new Notification
-        _showDesktopNotificationFallback(title, body);
     }
     function _showDesktopNotificationFallback(title, body) {
         try {
