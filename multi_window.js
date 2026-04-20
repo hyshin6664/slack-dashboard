@@ -138,16 +138,12 @@
         var finalTop = Math.max(0, baseTop + offset);
         if (finalTop + CHAT_WIN_HEIGHT > screenH) finalTop = Math.max(0, screenH - CHAT_WIN_HEIGHT - 20);
 
-        // [v3.3] noopener + popup — 별도 프로세스 강제로 PWA 제약 우회 시도
-        //   Chrome docs: noopener는 separate renderer process 생성 유도
-        var features = 'noopener,popup,width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + finalLeft + ',top=' + finalTop + ',resizable=yes,scrollbars=yes';
+        // [v3.4] popup 키워드만 사용 — noopener는 window.open이 null을 반환하게 해서
+        //   "두 번 열리는 버그" 원인이었음. 동일 winName 재사용으로 중복 열림 방지.
+        var features = 'popup,width=' + CHAT_WIN_WIDTH + ',height=' + CHAT_WIN_HEIGHT + ',left=' + finalLeft + ',top=' + finalTop + ',resizable=yes,scrollbars=yes';
         var winName = 'slack_chat_' + id;
         var popup = null;
         try { popup = window.open(url, winName, features); } catch(e) { popup = null; }
-        // noopener 실패 시 noopener 없이 재시도
-        if (isPopupBlocked(popup)) {
-            try { popup = window.open(url, winName, features.replace('noopener,', '')); } catch(e) { popup = null; }
-        }
         if (isPopupBlocked(popup)) {
             if (!isPWA()) showHelpModal();
             return false;
