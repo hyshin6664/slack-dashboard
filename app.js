@@ -2643,23 +2643,38 @@
 
     // [v3.0] 알림 테스트 버튼
     function testSlackNotification() {
-        // 테스트를 위해 임시로 포커스 해제 시뮬레이션
+        // [v3.4] 로컬 테스트 + 서버 Events API 시뮬레이션 통합
+        //   1) 로컬: 탭 깜빡임 + 토스트 + 데스크톱 알림 (시스템 레벨 알림 검증)
+        //   2) 서버: 가짜 이벤트 주입 → 3초 내 폴링이 감지 → 알림 뜨는지 확인
+        //   (Events API 설정 문제 여부 진단 가능)
+
+        // 1) 로컬 알림 즉시
         var origHasFocus = document.hasFocus;
         document.hasFocus = function() { return false; };
+        startTabFlash('박기찬', '[로컬 테스트] 알림 확인!');
+        try { showInAppToast('박기찬', '[로컬 테스트] 좌측 하단 토스트 확인!', ''); } catch(e) {}
+        setTimeout(function() { document.hasFocus = origHasFocus; }, 100);
 
-        startTabFlash('박기찬', '테스트 메시지입니다! 🔔');
-
-        // 2초 후 두 번째 알림 (카운트 증가 테스트)
-        setTimeout(function() {
-            startTabFlash('김철수', '두 번째 메시지!');
-        }, 2000);
-
-        // 원래 hasFocus 복원
-        setTimeout(function() {
-            document.hasFocus = origHasFocus;
-        }, 100);
-
-        showToast('🔔 알림 테스트! 다른 탭으로 전환해보세요 → 탭이 깜빡여요');
+        // 2) 서버에 가짜 이벤트 주입 (첫 번째 DM 채널에)
+        if (slackRealMode && dummyDMs.length > 0) {
+            var targetCh = dummyDMs[0].id;
+            var targetName = dummyDMs[0].name || 'tester';
+            showToast('📤 서버에 가짜 이벤트 주입 중...');
+            google.script.run
+                .withSuccessHandler(function(r) {
+                    if (r && r.success) {
+                        showToast('✅ 가짜 이벤트 주입됨! 3초 내 2번째 알림 뜨는지 확인하세요 (' + targetName + ')');
+                    } else {
+                        showToast('❌ 서버 이벤트 주입 실패: ' + (r ? r.error : '응답 없음'));
+                    }
+                })
+                .withFailureHandler(function(err) {
+                    showToast('❌ 서버 호출 실패: ' + err);
+                })
+                .simulateSlackEvent(targetCh, targetName, '[서버 시뮬레이션] 3초 내 알림 떠야 정상!');
+        } else {
+            showToast('🔔 로컬 알림 테스트 완료 (서버 테스트는 Slack 연결 후 가능)');
+        }
     }
 
     // addMessageToChat에서 알림 호출하도록 수정은 이미 있음.
