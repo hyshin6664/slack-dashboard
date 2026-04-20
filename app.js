@@ -436,6 +436,14 @@
             }
             return false;
         }) : src.slice();
+        // [v3.4 #8] 초기 로드 중(첫 배치 전)에는 timeRaw 있는 것만 표시
+        //   → 처음부터 최신순 정렬된 상태로 노출, 재정렬/깜빡임 없음
+        //   (친구 탭은 timeRaw 개념 없음 — 제외)
+        if (currentSlackTab !== 'friends' && window.__slackInitialPreviewsLoaded === false) {
+            filtered = filtered.filter(function(item) {
+                return (item.timeRaw || 0) > 0 || (item.unread || 0) > 0;
+            });
+        }
         // [v2.4] "새 대화 시작하기" 기능 제거
         // 이유: DM 목록에 이미 있는 사람도 "새 대화"로 중복 표시되는 문제
         // 새 대화가 필요하면 Slack 앱에서 시작 → 자동으로 목록에 추가됨
@@ -627,7 +635,11 @@
                     banner.style.background = 'linear-gradient(90deg, #22c55e, #16a34a)';
                     banner.style.color = '#ffffff';
                 }
-                renderSlackChatList();
+                // [v3.4 #8] 초기 이름 리스트를 즉시 렌더하지 않음 — 깜빡임/재정렬 방지
+                // 첫 배치 미리보기 도착할 때까지 스켈레톤 유지
+                window.__slackInitialPreviewsLoaded = false;
+                showSlackLoadingSkeleton();  // 스켈레톤 유지
+                // renderSlackChatList() 호출 생략 — loadPreviewsInBackground의 첫 배치 후에 렌더
                 updateTabCounts();
                 updateBrowserTitle();
                 // [v2.6] 친구 목록 생성 (usersMap에서)
@@ -727,11 +739,28 @@
     // ============================================================
     function loadPreviewsInBackground() {
         if (!slackRealMode) return;
-        // 모든 DM + 채널 ID 수집
-        var allIds = [];
-        dummyDMs.forEach(function(d) { allIds.push(d.id); });
-        dummyChannels.forEach(function(c) { allIds.push(c.id); });
-        if (allIds.length === 0) return;
+        // [v3.4 #8] 미리보기 로드 우선순위:
+        //   1) unread 있는 대화 (가장 최근 활동)
+        //   2) 최근 열어본 대화 (localStorage 이력 — 향후)
+        //   3) 나머지
+        //   → 첫 배치에 "최신 20개"가 들어가서 사용자가 바로 볼 수 있음
+        var priorityIds = [];
+        var normalIds = [];
+        dummyDMs.forEach(function(d) {
+            if ((d.unread || 0) > 0) priorityIds.push(d.id);
+            else normalIds.push(d.id);
+        });
+        dummyChannels.forEach(function(c) {
+            if ((c.unread || 0) > 0) priorityIds.push(c.id);
+            else normalIds.push(c.id);
+        });
+        var allIds = priorityIds.concat(normalIds);
+        if (allIds.length === 0) {
+            // 데이터 없을 때 플래그 켜서 빈 목록 표시
+            window.__slackInitialPreviewsLoaded = true;
+            try { renderSlackChatList(); } catch(e) {}
+            return;
+        }
         // 20개씩 배치로 나눠서 호출 (서버 부담 분산)
         var batches = [];
         for (var i = 0; i < allIds.length; i += 20) {
@@ -739,7 +768,13 @@
         }
         var batchIdx = 0;
         function processBatch() {
-            if (batchIdx >= batches.length) return;
+            if (batchIdx >= batches.length) {
+                // [v3.4 #8] 마지막 배치 끝 → 나머지 (timeRaw=0)도 모두 표시
+                window.__slackInitialPreviewsLoaded = true;
+                try { renderSlackChatList(); } catch(e) {}
+                try { saveSlackCacheToStorage(); } catch(e) {}
+                return;
+            }
             var batch = batches[batchIdx];
             batchIdx++;
             google.script.run
@@ -765,6 +800,8 @@
                         }
                     });
                     // UI 갱신 (미리보기 + 정렬 반영)
+                    // [v3.4 #8] 첫 배치 도착 시 스켈레톤 숨기고 정렬된 리스트 표시
+                    //   (첫 배치가 가장 최근 20개이므로 처음부터 최신순 노출됨)
                     renderSlackChatList();
                     // 다음 배치 (0.5초 뒤)
                     setTimeout(processBatch, 500);
@@ -774,8 +811,8 @@
                 })
                 .getLastMessagesBatch(JSON.stringify(batch));
         }
-        // 1초 뒤 시작 (목록 렌더 완료 후)
-        setTimeout(processBatch, 1000);
+        // [v3.4 #8] 바로 시작 (이전엔 1초 대기였는데, 스켈레톤 시간 단축)
+        setTimeout(processBatch, 100);
     }
 
     // [v1.2] 캔버스 백그라운드 로드
