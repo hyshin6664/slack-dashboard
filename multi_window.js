@@ -212,6 +212,10 @@
             if (typeof window.openSlackChatPopup === 'function') {
                 setTimeout(function() {
                     try {
+                        // [v3.4] 메인 창이 저장해둔 캐시 먼저 로드 → 이름/목록 즉시 사용 가능
+                        if (typeof window.__slackLoadCache === 'function') {
+                            try { window.__slackLoadCache(); } catch(e) {}
+                        }
                         if (window.openSlackChatPopup._original) {
                             window.openSlackChatPopup._original(chatType, chatId);
                         } else {

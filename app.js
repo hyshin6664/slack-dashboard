@@ -145,6 +145,69 @@
     }
 
     // ============================================================
+    // [v3.4] 메인↔자식 창 데이터 공유 (localStorage)
+    // ============================================================
+    // 자식 창은 별도 JS 컨텍스트라 dummyDMs/slackUsersMap을 못 봄.
+    // 메인 창이 데이터 받으면 localStorage에 저장 → 자식 창이 즉시 읽기.
+    // 메시지 캐시도 공유해서 자식 창에서 즉시 표시 (낙관적 UI 효과).
+    // ============================================================
+    var LS_KEY_SLACK = 'slack_dashboard_cache_v1';
+    var LS_KEY_MSGS = 'slack_dashboard_msgs_v1';
+    function saveSlackCacheToStorage() {
+        try {
+            localStorage.setItem(LS_KEY_SLACK, JSON.stringify({
+                dms: dummyDMs,
+                channels: dummyChannels,
+                canvases: dummyCanvases,
+                usersMap: slackUsersMap,
+                myUserId: slackMyUserId,
+                savedAt: Date.now()
+            }));
+        } catch(e) {}
+    }
+    function loadSlackCacheFromStorage() {
+        try {
+            var raw = localStorage.getItem(LS_KEY_SLACK);
+            if (!raw) return false;
+            var data = JSON.parse(raw);
+            if (!data) return false;
+            if (data.dms && data.dms.length) dummyDMs = data.dms;
+            if (data.channels && data.channels.length) dummyChannels = data.channels;
+            if (data.canvases && data.canvases.length) dummyCanvases = data.canvases;
+            if (data.usersMap) slackUsersMap = data.usersMap;
+            if (data.myUserId) slackMyUserId = data.myUserId;
+            slackRealMode = true;
+            return true;
+        } catch(e) { return false; }
+    }
+    function saveSlackMessagesToStorage(channelId) {
+        try {
+            var raw = localStorage.getItem(LS_KEY_MSGS);
+            var all = raw ? JSON.parse(raw) : {};
+            all[channelId] = dummyMessagesMap[channelId] || [];
+            // 크기 제한 — 최근 20개 채널만 유지
+            var keys = Object.keys(all);
+            if (keys.length > 20) {
+                keys.slice(0, keys.length - 20).forEach(function(k) { delete all[k]; });
+            }
+            localStorage.setItem(LS_KEY_MSGS, JSON.stringify(all));
+        } catch(e) {}
+    }
+    function loadSlackMessagesFromStorage(channelId) {
+        try {
+            var raw = localStorage.getItem(LS_KEY_MSGS);
+            if (!raw) return null;
+            var all = JSON.parse(raw);
+            return (all && all[channelId]) || null;
+        } catch(e) { return null; }
+    }
+    // 전역 노출 (multi_window.js가 호출할 수 있게)
+    window.__slackSaveCache = saveSlackCacheToStorage;
+    window.__slackLoadCache = loadSlackCacheFromStorage;
+    window.__slackSaveMessages = saveSlackMessagesToStorage;
+    window.__slackLoadMessages = loadSlackMessagesFromStorage;
+
+    // ============================================================
     // 초기화
     // ============================================================
     var slackUsersMap = {};       // [v0.6] 실제 사용자 이름 맵 { id: { name, email } }
@@ -520,6 +583,8 @@
                 dummyChannels = res.channels || [];
                 dummyCanvases = res.canvases || [];
                 dummyMessagesMap = {};
+                // [v3.4] 자식 창이 즉시 이름/메시지 쓸 수 있게 localStorage 공유
+                try { saveSlackCacheToStorage(); } catch(e) {}
                 if (banner) {
                     banner.innerHTML = '✅ Slack 연결됨 — 실제 데이터';
                     banner.style.background = 'linear-gradient(90deg, #22c55e, #16a34a)';
@@ -573,13 +638,33 @@
         // [v3.0 fix] 이미 로드된 메시지가 있으면 스킵 (Delta가 처리)
         if (dummyMessagesMap[popupId] && dummyMessagesMap[popupId].length > 0) return;
         var body = popupEl.querySelector('.slack-popup-body');
-        if (body) body.innerHTML = '<div style="color:#475569; text-align:center; padding:30px;">💬 메시지 불러오는 중...</div>';
+
+        // [v3.4] 낙관적 UI — localStorage 캐시에 메시지 있으면 즉시 표시 (#11)
+        var cached = null;
+        try { cached = loadSlackMessagesFromStorage(popupId); } catch(e) {}
+        if (cached && cached.length > 0) {
+            dummyMessagesMap[popupId] = cached;
+            renderPopupMessages(popupEl, popupId);
+            // 작은 배지로 "최신 확인 중" 표시 (선택)
+            if (body) {
+                var refreshHint = document.createElement('div');
+                refreshHint.id = 'slack-refresh-hint-' + popupId;
+                refreshHint.style.cssText = 'position:absolute;top:58px;left:50%;transform:translateX(-50%);background:rgba(59,130,246,0.9);color:white;font-size:11px;padding:3px 10px;border-radius:10px;z-index:5;pointer-events:none;';
+                refreshHint.textContent = '최신 확인 중...';
+                body.parentNode.appendChild(refreshHint);
+                setTimeout(function() { if (refreshHint.parentNode) refreshHint.remove(); }, 2000);
+            }
+        } else {
+            if (body) body.innerHTML = '<div style="color:#475569; text-align:center; padding:30px;">💬 메시지 불러오는 중...</div>';
+        }
+
         google.script.run
             .withSuccessHandler(function(res) {
                 if (!res || !res.success) {
-                    // [v3.0 fix] 실패해도 빈 메시지로 초기화 (새 대화방일 수 있음)
-                    dummyMessagesMap[popupId] = [];
-                    if (body) body.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:30px;">새 대화를 시작해보세요! 💬</div>';
+                    if (!cached || cached.length === 0) {
+                        dummyMessagesMap[popupId] = [];
+                        if (body) body.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:30px;">새 대화를 시작해보세요! 💬</div>';
+                    }
                     return;
                 }
                 dummyMessagesMap[popupId] = res.messages || [];
@@ -587,12 +672,15 @@
                     if (body) body.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:30px;">새 대화를 시작해보세요! 💬</div>';
                 } else {
                     renderPopupMessages(popupEl, popupId);
+                    // [v3.4] 새 메시지 캐시에 저장 → 다음 열기 즉시 표시
+                    try { saveSlackMessagesToStorage(popupId); } catch(e) {}
                 }
             })
             .withFailureHandler(function(err) {
-                // [v3.0 fix] 서버 에러(타임아웃 등)도 빈 대화로 처리
-                dummyMessagesMap[popupId] = [];
-                if (body) body.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:30px;">새 대화를 시작해보세요! 💬</div>';
+                if (!cached || cached.length === 0) {
+                    dummyMessagesMap[popupId] = [];
+                    if (body) body.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:30px;">새 대화를 시작해보세요! 💬</div>';
+                }
             })
             .getSlackMessages(popupId, 30);
     }
