@@ -2217,7 +2217,8 @@
             icon: 'icon-192.png',
             badge: 'icon-192.png',
             tag: 'slack-msg',
-            requireInteraction: true,
+            // [v3.4.4] Slack 공식 앱처럼 자연스럽게 — Windows 기본 타이머로 자동 사라짐
+            requireInteraction: false,
             silent: false,
             data: { url: location.href, title: title }
         };
@@ -2245,10 +2246,12 @@
                 body: body,
                 icon: 'icon-192.png',
                 tag: 'slack-msg',
-                requireInteraction: true,
+                requireInteraction: false,  // [v3.4.4] 자동 사라짐
                 silent: false
             });
             n.onclick = function() { window.focus(); stopTabFlash(); n.close(); };
+            // [v3.4.4] 보강: Windows 기본 5초보다 짧게 3초 후 자동 close
+            setTimeout(function() { try { n.close(); } catch(e) {} }, 3000);
         } catch(e) {
             // 최후의 수단 — 옵션 빼고 기본만
             try { new Notification('💬 ' + title); } catch(e2) {}
