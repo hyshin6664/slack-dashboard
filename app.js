@@ -207,6 +207,39 @@
     window.__slackSaveMessages = saveSlackMessagesToStorage;
     window.__slackLoadMessages = loadSlackMessagesFromStorage;
 
+    // [v3.4] 새 메시지 도착 시 대화 목록 재정렬 + 미리보기 갱신
+    function updateChatListOrder(channelId, lastMsg) {
+        if (!channelId) return;
+        // 어느 목록에 있는지 찾기
+        var lists = [dummyDMs, dummyChannels, dummyCanvases];
+        var found = null;
+        for (var li = 0; li < lists.length; li++) {
+            for (var i = 0; i < lists[li].length; i++) {
+                if (lists[li][i].id === channelId) { found = lists[li][i]; break; }
+            }
+            if (found) break;
+        }
+        if (!found) return;
+        // 미리보기/시간 갱신
+        if (lastMsg) {
+            var preview = (lastMsg.from ? lastMsg.from + ': ' : '') + (lastMsg.text || '').substring(0, 60);
+            found.preview = preview;
+            found.time = lastMsg.time || '';
+            var ts = parseFloat(lastMsg.ts || '0');
+            if (ts > 0) found.timeRaw = ts * 1000;
+            else found.timeRaw = Date.now();
+            // 상대방 메시지면 안읽음 +1 (현재 focus된 채팅 아니면)
+            if (!lastMsg.mine && channelId !== focusedPopupId) {
+                found.unread = (found.unread || 0) + 1;
+            }
+        }
+        // 목록 재정렬 + 다시 그리기
+        try { renderSlackChatList(); } catch(e) {}
+        try { updateTabCounts(); } catch(e) {}
+        try { saveSlackCacheToStorage(); } catch(e) {}
+    }
+    window.__slackUpdateChatListOrder = updateChatListOrder;
+
     // ============================================================
     // 초기화
     // ============================================================
@@ -582,7 +615,11 @@
                 dummyDMs = res.dms || [];
                 dummyChannels = res.channels || [];
                 dummyCanvases = res.canvases || [];
-                dummyMessagesMap = {};
+                // [v3.4 fix] dummyMessagesMap은 reset하지 않음 — 이미 로드된 팝업의 메시지를
+                //           날려버리는 버그 (자식 창/낙관적 UI가 로드한 메시지 손실) 방지
+                if (typeof dummyMessagesMap !== 'object' || dummyMessagesMap === null) {
+                    dummyMessagesMap = {};
+                }
                 // [v3.4] 자식 창이 즉시 이름/메시지 쓸 수 있게 localStorage 공유
                 try { saveSlackCacheToStorage(); } catch(e) {}
                 if (banner) {
@@ -927,17 +964,17 @@
             popupEl.style.setProperty('border-radius', '0', 'important');
             popupEl.style.setProperty('transform', 'none', 'important');
             popupEl.classList.add('slack-popup-fullscreen');
-            // [v3.3] 풀스크린 모드에서 뒤로가기/닫기 + 진단 버튼 주입
-            // - 자식 창이면 "✕ 창 닫기" (OS 창 닫기)
-            // - 메인 창이면 "← 목록" (대화 목록으로)
+            // [v3.4] 풀스크린 모드 — 뒤로가기/닫기 + 진단을 헤더 안에 인라인 삽입
+            //   (기존 absolute 배치는 이름을 가리는 버그가 있었음)
             var __isChildWin = false;
             try { __isChildWin = !!(new URLSearchParams(window.location.search)).get('chat'); } catch(e) {}
-            if (!popupEl.querySelector('.slack-popup-back-btn')) {
+            var headerEl = popupEl.querySelector('.slack-popup-header');
+            if (headerEl && !headerEl.querySelector('.slack-popup-back-btn')) {
                 var backBtn = document.createElement('button');
                 backBtn.className = 'slack-popup-back-btn';
-                backBtn.innerHTML = __isChildWin ? '✕ 창 닫기' : '← 목록';
-                backBtn.title = __isChildWin ? '이 대화창 닫기' : '대화 목록으로 돌아가기';
-                backBtn.style.cssText = 'position:absolute;top:10px;left:10px;z-index:10;padding:6px 12px;background:rgba(255,255,255,0.95);border:1px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#1e293b;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.1);';
+                backBtn.innerHTML = __isChildWin ? '✕' : '←';
+                backBtn.title = __isChildWin ? '창 닫기' : '대화 목록으로';
+                backBtn.style.cssText = 'width:32px;height:32px;padding:0;margin-right:6px;background:rgba(255,255,255,0.9);border:1px solid #e2e8f0;border-radius:50%;font-size:15px;font-weight:800;color:#1e293b;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
                 backBtn.addEventListener('click', function(ev) {
                     ev.stopPropagation();
                     if (__isChildWin) {
@@ -946,20 +983,27 @@
                         closeSlackPopup(id);
                     }
                 });
-                popupEl.appendChild(backBtn);
+                // 맨 앞에 삽입 (아바타보다 앞)
+                headerEl.insertBefore(backBtn, headerEl.firstChild);
             }
-            // [v3.3] 풀스크린 모드에서도 진단 버튼 접근 가능하게
-            if (!popupEl.querySelector('.slack-popup-diag-btn')) {
+            // 진단 버튼도 헤더에 인라인 (기존 고정 위치 버튼들 앞에)
+            if (headerEl && !headerEl.querySelector('.slack-popup-diag-btn')) {
                 var diagBtn = document.createElement('button');
                 diagBtn.className = 'slack-popup-diag-btn';
                 diagBtn.innerHTML = '🔍';
                 diagBtn.title = '진단 (Slack 상태 점검)';
-                diagBtn.style.cssText = 'position:absolute;top:10px;right:50px;z-index:10;padding:6px 10px;background:rgba(254,224,71,0.95);border:1px solid #e2e8f0;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.1);';
+                diagBtn.style.cssText = 'width:32px;height:32px;padding:0;margin-left:2px;background:rgba(254,224,71,0.9);border:1px solid #e2e8f0;border-radius:50%;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;';
                 diagBtn.addEventListener('click', function(ev) {
                     ev.stopPropagation();
                     if (typeof runSlackDiagnostics === 'function') runSlackDiagnostics();
                 });
-                popupEl.appendChild(diagBtn);
+                // 기존 헤더 버튼들(🔗 🔲 ─ ✕) 앞에 삽입
+                var firstHdrBtn = headerEl.querySelector('.slack-popup-header-btn');
+                if (firstHdrBtn) {
+                    headerEl.insertBefore(diagBtn, firstHdrBtn);
+                } else {
+                    headerEl.appendChild(diagBtn);
+                }
             }
         } else {
             // [v0.5] 데스크톱 일반 브라우저: 오른쪽에서 열림
@@ -2680,6 +2724,9 @@
                     if (added) {
                         dummyMessagesMap[focusedPopupId] = existing;
                         renderPopupMessages(fp.el, focusedPopupId);
+                        // [v3.4] 새 메시지 도착 시 대화 목록 최신순 재정렬
+                        try { updateChatListOrder(focusedPopupId, newMsgs[newMsgs.length - 1]); } catch(e) {}
+                        try { saveSlackMessagesToStorage(focusedPopupId); } catch(e) {}
                     }
                 })
                 .getSlackNewMessages(focusedPopupId, lastTs);
@@ -2809,6 +2856,9 @@
                 if (added) {
                     dummyMessagesMap[channelId] = existing;
                     renderPopupMessages(fp.el, channelId);
+                    // [v3.4] 대화 목록 재정렬
+                    try { updateChatListOrder(channelId, newMsgs[newMsgs.length - 1]); } catch(e) {}
+                    try { saveSlackMessagesToStorage(channelId); } catch(e) {}
                 }
             })
             .getSlackNewMessages(channelId, afterTs);
