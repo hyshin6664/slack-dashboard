@@ -2332,6 +2332,37 @@
                     lines.push('');
                 }
 
+                // [v3.4] 알림 시스템 상태 진단 (사용자 요청)
+                lines.push('[알림 상태]');
+                try {
+                    var notifPerm = (typeof Notification !== 'undefined') ? Notification.permission : 'N/A';
+                    lines.push('  Notification 권한: ' + notifPerm);
+                } catch(e) { lines.push('  Notification: 확인 실패'); }
+                var hasSW = ('serviceWorker' in navigator);
+                lines.push('  Service Worker 지원: ' + hasSW);
+                if (hasSW && navigator.serviceWorker.controller) {
+                    lines.push('  SW 컨트롤러: 활성');
+                } else if (hasSW) {
+                    lines.push('  SW 컨트롤러: 비활성 (알림 제한될 수 있음)');
+                }
+                lines.push('  화면 포커스: ' + (document.hasFocus() ? 'YES' : 'NO'));
+                lines.push('  페이지 가시성: ' + document.visibilityState);
+                lines.push('  누적 알림 수(이번 세션): ' + (window.__slackTotalAlerts || 0));
+                lines.push('  마지막 Events API 응답: ' + (window.__slackLastAlertAt ? new Date(window.__slackLastAlertAt).toLocaleTimeString() : 'never'));
+                lines.push('  탭 깜빡임 상태: ' + (tabFlashInterval ? 'active' : 'off'));
+                lines.push('  탭 깜빡임 큐: ' + tabFlashMessages.length + '개');
+                var toastCards = document.querySelectorAll('#slackInAppToast .toast-card');
+                lines.push('  현재 표시 중인 토스트: ' + toastCards.length + '개');
+                lines.push('');
+
+                // [v3.4] 인라인 버튼 상태 (헤더 버튼 가림 버그 진단용)
+                lines.push('[인라인 버튼 상태]');
+                var backBtns = document.querySelectorAll('.slack-popup-back-btn');
+                lines.push('  뒤로가기 버튼: ' + backBtns.length + '개');
+                var diagBtns = document.querySelectorAll('.slack-popup-diag-btn');
+                lines.push('  진단 버튼: ' + diagBtns.length + '개');
+                lines.push('');
+
                 // [v3.3] PWA/멀티윈도우 환경 진단
                 lines.push('[환경 상세]');
                 var isStandalone = false;
@@ -2732,9 +2763,47 @@
                 .getSlackNewMessages(focusedPopupId, lastTs);
         }, 1000);
 
-        // === 2. 비포커스 팝업: 3초마다 Events API 캐시 확인 ===
+        // === 2. 비포커스 팝업 + [v3.4] 닫힌 대화방까지 전역 알림 감지 ===
         slackCacheInterval = setInterval(function() {
             if (!slackRealMode) return;
+            // [v3.4] 전역: Events API로 받은 "모든 활성 채널" 가져오기 → 닫힌 대화도 알림!
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    if (!res || !res.success) return;
+                    var channels = res.channels || [];
+                    if (channels.length === 0) return;
+                    window.__slackLastAlertAt = Date.now();
+                    channels.forEach(function(chId) {
+                        // 열린 팝업이면 메시지 갱신
+                        var popup = findPopup(chId);
+                        if (popup && !popup.minimized) {
+                            try { loadRealMessages(chId, popup.el); } catch(e) {}
+                        }
+                        // 열려있지 않으면 — 새 메시지 내용 가져와서 알림 + 리스트 업데이트
+                        else {
+                            google.script.run
+                                .withSuccessHandler(function(r) {
+                                    if (!r || !r.success) return;
+                                    var msgs = r.newMessages || [];
+                                    if (msgs.length === 0) return;
+                                    var lastMsg = msgs[msgs.length - 1];
+                                    if (lastMsg.mine) return; // 내가 보낸 건 알림 X
+                                    // 리스트 재정렬 + unread+1 + preview
+                                    try { updateChatListOrder(chId, lastMsg); } catch(e) {}
+                                    // 알림 3종
+                                    try { startTabFlash(lastMsg.from, lastMsg.text); } catch(e) {}
+                                    try { showInAppToast(lastMsg.from, lastMsg.text, chId); } catch(e) {}
+                                    try { playSlackDing(); } catch(e) {}
+                                    // 카운터 기록 (진단용)
+                                    window.__slackTotalAlerts = (window.__slackTotalAlerts || 0) + 1;
+                                })
+                                .getSlackNewMessages(chId, '0');
+                        }
+                    });
+                })
+                .getSlackActiveEventChannels();
+
+            // 비포커스 팝업 메시지 업데이트 (기존 로직도 유지)
             var otherPopups = openSlackPopups.filter(function(p) {
                 return !p.minimized && p.id !== focusedPopupId;
             });
