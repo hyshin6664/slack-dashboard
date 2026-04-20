@@ -1,18 +1,79 @@
 <div id="toastMsg" class="toast-msg">메시지</div>
 
+<!-- [v3.4] 아이콘 버튼 스타일 + 토스트 알림 영역 -->
+<style>
+    .btn-icon {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        padding: 0 !important;
+        font-size: 18px !important;
+        border-radius: 50% !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin-left: 4px !important;
+        cursor: pointer;
+        transition: transform 0.15s, background 0.15s;
+    }
+    .btn-icon:hover {
+        transform: scale(1.1);
+        background: rgba(0,0,0,0.06) !important;
+    }
+    /* [v3.4] 좌측 하단 신규 메시지 토스트 알림 영역 */
+    #slackInAppToast {
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        z-index: 999998;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-width: 320px;
+        pointer-events: none;
+    }
+    #slackInAppToast .toast-card {
+        background: white;
+        border-left: 4px solid #4A154B;
+        border-radius: 10px;
+        padding: 10px 14px;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+        font-size: 13px;
+        color: #1e293b;
+        animation: slideInUp 0.25s ease;
+        cursor: pointer;
+        pointer-events: auto;
+    }
+    #slackInAppToast .toast-card .toast-from {
+        font-weight: 800;
+        font-size: 13px;
+        color: #4A154B;
+        margin-bottom: 3px;
+    }
+    #slackInAppToast .toast-card .toast-text {
+        font-size: 13px;
+        color: #475569;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 290px;
+    }
+    @keyframes slideInUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to   { transform: translateY(0); opacity: 1; }
+    }
+</style>
+<div id="slackInAppToast"></div>
+
 <div class="top-bar">
     <div class="top-bar-title">💬 개인대시보드 Slack</div>
     <div class="top-bar-actions">
-        <!-- [v1.2] 연결 해제 버튼 (항상 표시) -->
-        <button class="action-btn btn-light" onclick="slackDisconnect()" title="Slack 연결 해제 후 재연동">🔌 연결 해제</button>
-        <!-- [v0.9] 소식 버튼 -->
-        <button class="action-btn btn-light" onclick="openSlackUpdatesModal()" title="업데이트 이력">🎁 소식</button>
-        <!-- [v0.6] 진단 버튼 -->
-        <button class="sim-btn" onclick="runSlackDiagnostics()" title="Slack API 진단 → 결과 클립보드 복사">🔍 진단</button>
-        <!-- [v1.0] 새로고침 + 테스트 -->
-        <button class="sim-btn" onclick="manualRefresh()" title="대화 목록 새로고침">🔄 새로고침</button>
-        <!-- [v3.0] 알림 테스트 버튼 -->
-        <button class="sim-btn" onclick="testSlackNotification()" title="새 메시지 알림 테스트 (탭 깜빡임 + 소리 + 데스크톱)">🔔 알림테스트</button>
+        <!-- [v3.4] 아이콘만 + hover 툴팁 (좁은 PWA에서도 깔끔) -->
+        <button class="action-btn btn-icon" onclick="slackDisconnect()" title="Slack 연결 해제 후 재연동" aria-label="연결 해제">🔌</button>
+        <button class="action-btn btn-icon" onclick="openSlackUpdatesModal()" title="소식 — 업데이트 이력" aria-label="소식">🎁</button>
+        <button class="action-btn btn-icon" onclick="runSlackDiagnostics()" title="진단 — Slack API 상태 점검" aria-label="진단">🔍</button>
+        <button class="action-btn btn-icon" onclick="manualRefresh()" title="새로고침 — 대화 목록 갱신" aria-label="새로고침">🔄</button>
+        <button class="action-btn btn-icon" onclick="testSlackNotification()" title="알림 테스트 — 탭 깜빡임 + 소리 + 데스크톱" aria-label="알림테스트">🔔</button>
         <!-- 오류신고 버튼은 06.html(수집기)에서 동적 주입됨 -->
     </div>
 </div>

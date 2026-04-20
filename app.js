@@ -803,10 +803,8 @@
         data.unread = 0;
         renderSlackChatList();
         updateTabCounts();
-        // 팝업 DOM 생성
-        var popupEl = buildPopupDom(type, id, data);
-        document.getElementById('slackPopupContainer').appendChild(popupEl);
-        // [v3.3] PWA/좁은 화면 감지 — 전체화면으로 덮기 (카톡 대화방 스타일)
+
+        // [v3.4] PWA/좁은 화면 감지 (먼저 판정해서 분기 처리)
         var __isPWA = false;
         try {
             __isPWA = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
@@ -814,6 +812,19 @@
                       (window.navigator && window.navigator.standalone === true);
         } catch(e) {}
         var __narrowViewport = window.innerWidth < 768;
+
+        // [v3.4] PWA/풀스크린 모드: 한 번에 한 대화만 표시 (카톡 모바일 스타일)
+        // 새 대화 열기 전에 기존 풀스크린 팝업 모두 close — "기존 창 변경" 버그 해결
+        if (__isPWA || __narrowViewport) {
+            var toClose = openSlackPopups.filter(function(p) {
+                return p.id !== id;
+            }).map(function(p) { return p.id; });
+            toClose.forEach(function(pid) { try { closeSlackPopup(pid); } catch(e) {} });
+        }
+
+        // 팝업 DOM 생성
+        var popupEl = buildPopupDom(type, id, data);
+        document.getElementById('slackPopupContainer').appendChild(popupEl);
         if (__isPWA || __narrowViewport) {
             // [v3.3] 전체화면 — CSS가 inline을 덮어쓸 수 있으므로 !important 강제
             popupEl.style.setProperty('position', 'fixed', 'important');
@@ -943,10 +954,18 @@
         if (type === 'dm' && data.isGroup && data.members) {
             groupCount = ' <span style="font-size:11px; font-weight:600; color:#475569; margin-left:4px;">(' + data.members.length + '명)</span>';
         }
+        // [v3.4] 대화 종류 라벨 — 어떤 대화인지 명확히 (사용자 요청)
+        var typeLabel = '';
+        var typeIcon = '';
+        if (type === 'channel') { typeIcon = '#'; typeLabel = '채널'; }
+        else if (type === 'canvas') { typeIcon = '📋'; typeLabel = '캔버스'; }
+        else if (type === 'dm' && data.isGroup) { typeIcon = '👥'; typeLabel = '그룹 대화'; }
+        else { typeIcon = '👤'; typeLabel = 'DM'; }
+        var typeBadge = '<span style="font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9; padding:2px 6px; border-radius:6px; margin-left:6px; vertical-align:middle;">' + typeIcon + ' ' + typeLabel + '</span>';
         el.innerHTML =
             '<div class="slack-popup-header" id="slack-popup-hdr-' + id + '">' +
                 headerAvatarHtml +
-                '<div class="slack-popup-header-title">' + titlePrefix + safeName + groupCount + '</div>' +
+                '<div class="slack-popup-header-title">' + titlePrefix + safeName + groupCount + typeBadge + '</div>' +
                 '<button class="slack-popup-header-btn" onclick="openInSlackApp(\'' + safeId + '\')" title="Slack 앱에서 열기">🔗</button>' +
                 '<button class="slack-popup-header-btn" onclick="toggleMaximizePopup(\'' + safeId + '\')" title="크기 조절">🔲</button>' +
                 '<button class="slack-popup-header-btn" onclick="minimizeSlackPopup(\'' + safeId + '\')" title="최소화">─</button>' +
@@ -2019,23 +2038,73 @@
     function showDesktopNotification(title, body) {
         if (typeof Notification === 'undefined') return;
         if (Notification.permission === 'granted') {
+            // [v3.4] PWA 환경에서는 Service Worker를 통해 알림 표시 — 더 안정적
+            //   PWA standalone 모드에서는 new Notification()이 작동 안 할 때가 있음
             try {
-                var n = new Notification('💬 ' + title, {
-                    body: body,
-                    icon: '',
-                    tag: 'slack-msg',  // 같은 tag → 기존 알림 교체 (쌓이지 않음)
-                    requireInteraction: true,  // [v3.0] 직접 닫을 때까지 유지! (작업표시줄에도 표시)
-                    silent: false
-                });
-                // 알림 클릭 시 탭으로 이동 + 깜빡임 멈춤
-                n.onclick = function() {
-                    window.focus();
-                    stopTabFlash();
-                    n.close();
-                };
+                if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+                    navigator.serviceWorker.ready.then(function(reg) {
+                        reg.showNotification('💬 ' + title, {
+                            body: body,
+                            icon: 'icon-192.png',
+                            badge: 'icon-192.png',
+                            tag: 'slack-msg',
+                            requireInteraction: true,
+                            silent: false,
+                            data: { url: location.href, title: title }
+                        });
+                    }).catch(function() {
+                        // SW 실패 시 일반 Notification fallback
+                        try {
+                            var n = new Notification('💬 ' + title, {
+                                body: body, tag: 'slack-msg',
+                                requireInteraction: true, silent: false
+                            });
+                            n.onclick = function() { window.focus(); stopTabFlash(); n.close(); };
+                        } catch(e2) {}
+                    });
+                } else {
+                    var n = new Notification('💬 ' + title, {
+                        body: body, tag: 'slack-msg',
+                        requireInteraction: true, silent: false
+                    });
+                    n.onclick = function() { window.focus(); stopTabFlash(); n.close(); };
+                }
             } catch(e) {}
         } else if (Notification.permission !== 'denied') {
             Notification.requestPermission();
+        }
+    }
+
+    // [v3.4] 화면 좌측 하단 인앱 토스트 알림 (카톡 미리보기 스타일)
+    var __inAppToastQueue = [];
+    function showInAppToast(senderName, text, channelId) {
+        var container = document.getElementById('slackInAppToast');
+        if (!container) return;
+        var card = document.createElement('div');
+        card.className = 'toast-card';
+        card.innerHTML =
+            '<div class="toast-from">' + escapeHtml(senderName || '새 메시지') + '</div>' +
+            '<div class="toast-text">' + escapeHtml((text || '').substring(0, 80)) + '</div>';
+        card.addEventListener('click', function() {
+            try {
+                window.focus();
+                if (channelId) openSlackChatPopup('dm', channelId);
+            } catch(e) {}
+            card.remove();
+        });
+        container.appendChild(card);
+        // 5초 후 자동 제거
+        setTimeout(function() {
+            if (card && card.parentNode) {
+                card.style.transition = 'opacity 0.3s';
+                card.style.opacity = '0';
+                setTimeout(function() { if (card.parentNode) card.remove(); }, 300);
+            }
+        }, 5000);
+        // 5개 초과 시 가장 오래된 거 제거
+        var cards = container.querySelectorAll('.toast-card');
+        if (cards.length > 5) {
+            for (var i = 0; i < cards.length - 5; i++) cards[i].remove();
         }
     }
 
@@ -2514,6 +2583,8 @@
                             if (!m.mine) {
                                 startTabFlash(m.from, m.text);
                                 try { playSlackDing(); } catch(e) {}
+                                // [v3.4] 좌측 하단 인앱 토스트
+                                try { showInAppToast(m.from, m.text, focusedPopupId); } catch(e) {}
                             }
                         }
                     });
@@ -2642,6 +2713,8 @@
                         if (!m.mine) {
                             startTabFlash(m.from, m.text);
                             try { playSlackDing(); } catch(e) {}
+                            // [v3.4] 좌측 하단 인앱 토스트
+                            try { showInAppToast(m.from, m.text, channelId); } catch(e) {}
                         }
                     }
                 });
