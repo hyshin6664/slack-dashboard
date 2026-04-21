@@ -1775,20 +1775,32 @@
                 '</div>';
         }
         body.innerHTML = threadAlertHtml + html;
-        // [v3.8] 스크롤을 맨 아래(최신 메시지)로 — DOM 렌더 완료 후 확실히 실행
+        // [v3.8.4] 스크롤 맨 아래 강제 — 3단계 전략
         var doScroll = function() {
+            // 방법 1: scrollTop = scrollHeight (기본)
             body.scrollTop = body.scrollHeight;
+            // 방법 2: 마지막 메시지를 scrollIntoView (가장 확실)
+            var lastMsg = body.querySelector('.msg-row:last-child, .msg-day-sep:last-child, .chat-msg:last-child');
+            if (lastMsg && typeof lastMsg.scrollIntoView === 'function') {
+                try { lastMsg.scrollIntoView({ block: 'end', behavior: 'auto' }); } catch(e) {}
+            }
         };
+        // 즉시
         doScroll();
-        // requestAnimationFrame으로 이미지 등 async 리소스 로드 후 재보정
+        // RAF 후
         if (typeof requestAnimationFrame === 'function') {
-            requestAnimationFrame(function() {
-                doScroll();
-                // 추가 보정 (이미지 로딩 시간 고려)
-                setTimeout(doScroll, 100);
-                setTimeout(doScroll, 500);
-            });
+            requestAnimationFrame(function() { doScroll(); });
         }
+        // 비동기 리소스 로드 보정
+        setTimeout(doScroll, 50);
+        setTimeout(doScroll, 200);
+        setTimeout(doScroll, 600);
+        // 이미지 로드 시 재보정 (가장 중요 — 이미지가 뒤늦게 와서 레이아웃 밀림)
+        var imgs = body.querySelectorAll('img');
+        imgs.forEach(function(img) {
+            img.addEventListener('load', doScroll, { once: true });
+            img.addEventListener('error', doScroll, { once: true });
+        });
     }
 
     // [v0.5] 날짜 구분선 포맷
