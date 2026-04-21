@@ -187,6 +187,57 @@
         };
     }
 
+    // [v3.8] 원클릭 설치 — 플랫폼 감지해서 최적 방식 자동 실행
+    function quickInstall() {
+        var p = detectPlatform();
+        // 1) 알림 권한 먼저 요청 (사용자 제스처 있을 때)
+        if ('Notification' in window && Notification.permission === 'default') {
+            try { Notification.requestPermission(); } catch(e) {}
+        }
+        // 2) Mac/Chrome/Edge/웨일 PWA: install prompt가 있으면 그걸 먼저
+        if (__deferredPwaPrompt) {
+            __deferredPwaPrompt.prompt();
+            __deferredPwaPrompt.userChoice.then(function(result) {
+                __deferredPwaPrompt = null;
+                if (result.outcome === 'accepted') {
+                    showToast('✅ 앱으로 설치됨! 시작 메뉴/Launchpad에서 실행하세요');
+                    // Windows는 추가로 .bat 다운로드도 (바탕화면 바로가기 자동 생성용)
+                    if (p.isWindows) {
+                        setTimeout(function() {
+                            if (confirm('바탕화면에 바로가기도 만들까요?\n\n"확인" 누르면 설치 파일이 다운로드돼요. 더블클릭 한 번이면 바탕화면에 바로가기 생성!')) {
+                                downloadBatShortcut();
+                            }
+                        }, 800);
+                    }
+                } else {
+                    showToast('설치 취소됨');
+                }
+            });
+            return;
+        }
+        // 3) PWA prompt 없음 → 플랫폼별 대체
+        if (p.isMac) {
+            // Mac Chrome/Edge: PWA install 권장 (주소창 ⊕)
+            if (p.isSafari) {
+                alert('Safari에서는 자동 설치 불가능해요.\n\nChrome 또는 Edge로 접속하면 원클릭 설치 됩니다.\n\n또는: Safari 상단 공유(□↑) → "Dock에 추가"');
+                return;
+            }
+            alert('Chrome/Edge에서:\n주소창 오른쪽 ⊕ 아이콘을 클릭하면 바로 설치돼요!\n\n이미 설치된 경우: Launchpad에서 "Slack 대시보드" 실행');
+            return;
+        }
+        if (p.isWindows) {
+            // 바로 .bat 다운로드 + 실행 안내
+            downloadBatShortcut();
+            return;
+        }
+        if (p.isMobile) {
+            alert('모바일:\nChrome 우측 상단 ⋮ → "홈 화면에 추가"\n또는 Safari 공유 → "홈 화면에 추가"');
+            return;
+        }
+        alert('Chrome/Edge 브라우저에서 접속해주세요.\n주소창 옆 ⊕ 아이콘으로 원클릭 설치됩니다.');
+    }
+    window.quickInstall = quickInstall;
+
     function openInstallModal() {
         var modal = document.getElementById('installModal');
         if (!modal) return;
