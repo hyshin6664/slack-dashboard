@@ -1031,6 +1031,19 @@
                 dummyDMs = res.dms || [];
                 dummyChannels = res.channels || [];
                 dummyCanvases = res.canvases || [];
+                // [v3.8.3] 초기 로드 실패 (rate limit 등)이면 60초 후 자동 재시도
+                if (res.rateLimited || (dummyDMs.length === 0 && dummyChannels.length === 0)) {
+                    showToast('⚠️ 일부 데이터가 아직 안 왔어요. 60초 후 자동 재시도...');
+                    setTimeout(function() {
+                        console.log('[v3.8.3] 초기 로드 재시도');
+                        // 서버 캐시 무효화를 위해 clearSlackCache 먼저 호출
+                        google.script.run
+                            .withSuccessHandler(function() {
+                                loadRealSlackData();
+                            })
+                            .clearSlackCache();
+                    }, 60000);
+                }
                 // [v3.4 fix] dummyMessagesMap은 reset하지 않음 — 이미 로드된 팝업의 메시지를
                 //           날려버리는 버그 (자식 창/낙관적 UI가 로드한 메시지 손실) 방지
                 if (typeof dummyMessagesMap !== 'object' || dummyMessagesMap === null) {
@@ -1374,6 +1387,22 @@
         // 읽음 처리 (로컬 unread도 리셋)
         data.unread = 0;
         data.unreadLocal = 0;
+        // [v3.8.3] Slack 서버에도 "읽음" 알림 — 다음 폴링에서 배지 다시 뜨는 버그 방지
+        try {
+            var latestMsgTs = '';
+            var cached = dummyMessagesMap[id];
+            if (cached && cached.length > 0) latestMsgTs = cached[cached.length - 1].ts || '';
+            if (!latestMsgTs) latestMsgTs = (Date.now() / 1000).toFixed(6);
+            google.script.run
+                .withSuccessHandler(function() {
+                    // 서버에서 unread 캐시 초기화 (다음 폴링에서 반영)
+                    if (typeof slackLastUnreadMap === 'object' && slackLastUnreadMap[id]) {
+                        slackLastUnreadMap[id].unread = 0;
+                    }
+                })
+                .withFailureHandler(function() {})
+                .markSlackRead(id, latestMsgTs);
+        } catch(markErr) {}
         renderSlackChatList();
         updateTabCounts();
 
