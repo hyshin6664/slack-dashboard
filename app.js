@@ -661,18 +661,26 @@
         else if (currentSlackTab === 'channel') src = dummyChannels;
         else src = dummyCanvases;
         var q = slackSearchQuery;
+        // [v3.6.3] 공백 무시 검색 — "김병국"으로 "김 병국" 찾기, 반대도 OK
+        var qNoSpace = q ? q.replace(/\s+/g, '') : '';
+        function _matchText(text) {
+            if (!text) return false;
+            var t = text.toLowerCase();
+            if (t.indexOf(q) !== -1) return true;
+            // 공백 제거 후 비교 (이름에 공백 있는 경우 대응)
+            return t.replace(/\s+/g, '').indexOf(qNoSpace) !== -1;
+        }
         var filtered = q ? src.filter(function(item) {
-            var n = (item.name || '').toLowerCase();
-            var p = (item.preview || '').toLowerCase();
-            if (n.indexOf(q) !== -1 || p.indexOf(q) !== -1) return true;
+            if (_matchText(item.name)) return true;
+            if (_matchText(item.preview)) return true;
             if (item.members && Array.isArray(item.members)) {
                 for (var i = 0; i < item.members.length; i++) {
-                    if ((item.members[i] || '').toLowerCase().indexOf(q) !== -1) return true;
+                    if (_matchText(item.members[i])) return true;
                 }
             }
             if (item.participants && Array.isArray(item.participants)) {
                 for (var j = 0; j < item.participants.length; j++) {
-                    if ((item.participants[j] || '').toLowerCase().indexOf(q) !== -1) return true;
+                    if (_matchText(item.participants[j])) return true;
                 }
             }
             return false;
