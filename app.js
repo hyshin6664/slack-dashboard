@@ -1194,7 +1194,12 @@
                       (window.matchMedia && window.matchMedia('(display-mode: window-controls-overlay)').matches) ||
                       (window.navigator && window.navigator.standalone === true);
         } catch(e) {}
-        var __narrowViewport = window.innerWidth < 768;
+        // [v3.6 fix] 데스크톱은 좁아도 풀스크린 안 함 (카톡 PC처럼 별도 창 우선)
+        //   진짜 모바일(터치 기기)일 때만 인앱 풀스크린
+        var __ua = navigator.userAgent || '';
+        var __isMobileDevice = /Mobi|Android|iPhone|iPad|iPod/.test(__ua) &&
+                               (('ontouchstart' in window) || navigator.maxTouchPoints > 0);
+        var __narrowViewport = __isMobileDevice && window.innerWidth < 768;
 
         // [v3.4] PWA/풀스크린 모드: 한 번에 한 대화만 표시 (카톡 모바일 스타일)
         // 새 대화 열기 전에 기존 풀스크린 팝업 모두 close — "기존 창 변경" 버그 해결

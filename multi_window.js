@@ -11,7 +11,13 @@
     var POPUP_CHECK_DELAY = 200;
 
     function isMobile() {
-        return window.innerWidth < MOBILE_WIDTH;
+        // [v3.6 fix] 단순 너비 체크 X — 진짜 모바일 기기만 감지
+        //   (PWA 창을 좁게 줄여도 데스크톱이면 별도 창 시도해야 함 — 카톡 PC 스타일)
+        var ua = navigator.userAgent || '';
+        var isMobileUA = /Mobi|Android|iPhone|iPad|iPod/.test(ua);
+        var hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        // 모바일 UA + 터치 + 좁은 창 모두 만족해야 모바일
+        return isMobileUA && hasTouch && window.innerWidth < MOBILE_WIDTH;
     }
 
     // [v3.3] PWA standalone 감지 — PWA에서는 window.open이 외부 브라우저로 빠지므로
