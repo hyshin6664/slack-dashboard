@@ -528,9 +528,10 @@
             var ts = parseFloat(lastMsg.ts || '0');
             if (ts > 0) found.timeRaw = ts * 1000;
             else found.timeRaw = Date.now();
-            // 상대방 메시지면 안읽음 +1 (현재 focus된 채팅 아니면)
+            // [v3.7.4] 로컬 unread 추적 (Slack 공식 앱이 읽어도 우리 대시보드 배지 유지)
             if (!lastMsg.mine && channelId !== focusedPopupId) {
-                found.unread = (found.unread || 0) + 1;
+                found.unreadLocal = (found.unreadLocal || 0) + 1;
+                found.unread = Math.max(found.unread || 0, found.unreadLocal);
             }
         }
         // 목록 재정렬 + 다시 그리기
@@ -1319,8 +1320,9 @@
             };
             dummyDMs.push(data);
         }
-        // 읽음 처리
+        // 읽음 처리 (로컬 unread도 리셋)
         data.unread = 0;
+        data.unreadLocal = 0;
         renderSlackChatList();
         updateTabCounts();
 
@@ -1987,7 +1989,7 @@
         p.el.style.zIndex = (++nextSlackPopupZ);
         // [v0.5] 복원하면서 읽음 처리
         popupUnreadMap[id] = 0;
-        if (p.data) p.data.unread = 0;
+        if (p.data) { p.data.unread = 0; p.data.unreadLocal = 0; }
         renderSlackChatList();
         updateTabCounts();
         updateBrowserTitle();
@@ -3397,26 +3399,24 @@
                             else if (it.latestTs && prev.latestTs && parseFloat(it.latestTs) > parseFloat(prev.latestTs)) isNew = true;
                         }
                         slackLastUnreadMap[it.id] = { unread: it.unread || 0, latestTs: it.latestTs || '' };
-                        // [v3.5] 서버의 unread 값을 클라이언트 리스트에 동기화 → 빨간 배지 표시
+                        // [v3.5] 서버의 unread 값 동기화 (+ 로컬 unread와 MAX 유지)
+                        //   Slack 공식 앱이 빨리 읽어도 우리 쪽 배지 유지 — 사용자가 우리 앱에서 열 때까지
                         var serverUnread = it.unread || 0;
-                        for (var i = 0; i < dummyDMs.length; i++) {
-                            if (dummyDMs[i].id === it.id) {
-                                if (dummyDMs[i].unread !== serverUnread) {
-                                    dummyDMs[i].unread = serverUnread;
-                                    listChanged = true;
+                        function applyUnread(itemArr) {
+                            for (var i = 0; i < itemArr.length; i++) {
+                                if (itemArr[i].id === it.id) {
+                                    var local = itemArr[i].unreadLocal || 0;
+                                    var effective = Math.max(serverUnread, local);
+                                    if (itemArr[i].unread !== effective) {
+                                        itemArr[i].unread = effective;
+                                        listChanged = true;
+                                    }
+                                    break;
                                 }
-                                break;
                             }
                         }
-                        for (var j = 0; j < dummyChannels.length; j++) {
-                            if (dummyChannels[j].id === it.id) {
-                                if (dummyChannels[j].unread !== serverUnread) {
-                                    dummyChannels[j].unread = serverUnread;
-                                    listChanged = true;
-                                }
-                                break;
-                            }
-                        }
+                        applyUnread(dummyDMs);
+                        applyUnread(dummyChannels);
                         if (isNew) {
                             // 채널 이름/미리보기 가져와 알림 발사
                             _slackFireAlertForChannel(it.id, it.latestTs);
@@ -3503,39 +3503,53 @@
                         if (!info || !info.ts) return;
                         var prevTs = slackLatestTsMap[chId];
                         var currTs = parseFloat(info.ts);
+
+                        // [v3.7.4] 메타에서 기준 timeRaw 조회 (페이지 로드 시점 또는 마지막 감지 시점)
+                        var meta = null;
+                        for (var i = 0; i < dummyDMs.length; i++) if (dummyDMs[i].id === chId) { meta = dummyDMs[i]; break; }
+                        if (!meta) for (var j = 0; j < dummyChannels.length; j++) if (dummyChannels[j].id === chId) { meta = dummyChannels[j]; break; }
+                        var metaBaseTs = (meta && meta.timeRaw) ? (meta.timeRaw / 1000) : 0;
+
+                        // 첫 관측이어도 메타 timeRaw 기준으로 "새 메시지인지" 판정
+                        //   currTs > metaBaseTs + 2초 → 페이지 로드 후 새로 도착한 것 → 알림
+                        //   그 외 → 알림 X (단순 기록)
+                        var isFresh = false;
                         if (!prevTs) {
-                            // 첫 관측 → 기록만 (알림 X)
-                            slackLatestTsMap[chId] = currTs;
-                            return;
+                            if (metaBaseTs > 0 && currTs > metaBaseTs + 2) isFresh = true;
+                        } else {
+                            if (currTs > prevTs) isFresh = true;
                         }
-                        if (currTs > prevTs) {
-                            // 새 메시지 도착!
-                            slackLatestTsMap[chId] = currTs;
-                            // 내 메시지면 알림 X
-                            if (info.mine) return;
-                            // 알림 발사 (닫힌 대화방만)
-                            var popup = findPopup(chId);
-                            if (popup && !popup.minimized) return; // 열려있으면 delta 폴링이 처리
-                            // 메타 찾기
-                            var meta = null;
-                            for (var i = 0; i < dummyDMs.length; i++) if (dummyDMs[i].id === chId) { meta = dummyDMs[i]; break; }
-                            if (!meta) for (var j = 0; j < dummyChannels.length; j++) if (dummyChannels[j].id === chId) { meta = dummyChannels[j]; break; }
-                            var senderName = info.from || (meta ? meta.name : '새 메시지');
-                            try { startTabFlash(senderName, info.text); } catch(e) {}
-                            try { showInAppToast(senderName, info.text, chId); } catch(e) {}
+
+                        // 항상 최신 ts 저장
+                        slackLatestTsMap[chId] = currTs;
+
+                        if (!isFresh) return;
+
+                        // 내 메시지는 알림 X
+                        if (info.mine) return;
+
+                        // 열린 팝업이면 delta 폴링이 처리 → 리스트 업데이트만
+                        var popup = findPopup(chId);
+                        // 메시지 내용 이모지 변환
+                        var displayText = (typeof convertEmojiCodes === 'function') ? convertEmojiCodes(info.text || '') : (info.text || '');
+                        var senderName = info.from || (meta ? meta.name : '새 메시지');
+
+                        if (!popup || popup.minimized) {
+                            try { startTabFlash(senderName, displayText); } catch(e) {}
+                            try { showInAppToast(senderName, displayText, chId); } catch(e) {}
                             try { playSlackDing(); } catch(e) {}
                             window.__slackTotalAlerts = (window.__slackTotalAlerts || 0) + 1;
-                            // 대화 목록 업데이트 (preview + 시간)
-                            try {
-                                updateChatListOrder(chId, {
-                                    from: info.from || '',
-                                    text: info.text || '',
-                                    time: formatTsBrief(info.ts),
-                                    ts: info.ts,
-                                    mine: false
-                                });
-                            } catch(e) {}
                         }
+                        // 대화 목록 업데이트 (preview + 시간 + 최신순 재정렬)
+                        try {
+                            updateChatListOrder(chId, {
+                                from: info.from || '',
+                                text: info.text || '',
+                                time: formatTsBrief(info.ts),
+                                ts: info.ts,
+                                mine: false
+                            });
+                        } catch(e) {}
                     });
                 })
                 .withFailureHandler(function() {})
