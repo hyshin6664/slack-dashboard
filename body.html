@@ -69,6 +69,7 @@
     <div class="top-bar-title">💬 개인대시보드 Slack</div>
     <div class="top-bar-actions">
         <!-- [v3.4] 아이콘만 + hover 툴팁 (좁은 PWA에서도 깔끔) -->
+        <button class="action-btn btn-icon btn-install" onclick="openInstallModal()" title="바탕화면에 설치하기" aria-label="설치">💾</button>
         <button class="action-btn btn-icon" onclick="slackDisconnect()" title="Slack 연결 해제 후 재연동" aria-label="연결 해제">🔌</button>
         <button class="action-btn btn-icon" onclick="openSlackUpdatesModal()" title="소식 — 업데이트 이력" aria-label="소식">🎁</button>
         <button class="action-btn btn-icon" onclick="runSlackDiagnostics()" title="진단 — Slack API 상태 점검" aria-label="진단">🔍</button>
@@ -77,6 +78,209 @@
         <!-- 오류신고 버튼은 06.html(수집기)에서 동적 주입됨 -->
     </div>
 </div>
+
+<!-- [v3.6] 설치 안내 모달 -->
+<div id="installModal" class="install-modal-overlay" onclick="if(event.target===this)closeInstallModal()">
+    <div class="install-modal-box">
+        <div class="install-modal-header">
+            <span>💾 바탕화면에 설치하기</span>
+            <button class="install-modal-close" onclick="closeInstallModal()" aria-label="닫기">✕</button>
+        </div>
+        <div class="install-modal-body">
+            <div class="install-intro">
+                매번 브라우저 주소 입력 없이, <b>바탕화면에서 바로</b> 대시보드 열기!
+            </div>
+
+            <div class="install-card install-card-primary">
+                <div class="install-card-title">⭐ 옵션 A: Chrome 앱으로 설치 (추천)</div>
+                <div class="install-card-desc">
+                    원클릭 설치 · 시작 메뉴 + 바탕화면 자동 등록 ·<br>
+                    독립 창 (카톡 PC 앱처럼 브라우저 UI 없음)
+                </div>
+                <button id="installPwaBtn" class="install-btn install-btn-primary" onclick="triggerPwaInstall()">
+                    📦 지금 설치
+                </button>
+                <div id="installPwaHint" class="install-hint" style="display:none;">
+                    ⚠️ 지금 브라우저에서 PWA 설치를 지원하지 않아요.<br>
+                    <b>Chrome으로 접속</b>해주세요. 또는 아래 옵션 B 사용.
+                </div>
+            </div>
+
+            <div class="install-card">
+                <div class="install-card-title">🛠️ 옵션 B: Windows 바로가기 다운로드</div>
+                <div class="install-card-desc">
+                    <code>.bat</code> 파일 다운로드 → <b>바탕화면으로 드래그</b> → 더블클릭하면<br>
+                    무조건 Chrome 앱 모드로 열림 (기본 브라우저 무시)
+                </div>
+                <button class="install-btn" onclick="downloadBatShortcut()">
+                    💾 .bat 파일 다운로드
+                </button>
+                <div class="install-hint" style="display:block;">
+                    💡 Windows가 "보호" 경고 표시할 수 있어요 → <b>"실행"</b> 또는 <b>"추가 정보 → 실행"</b> 누르세요
+                </div>
+            </div>
+
+            <div class="install-card install-card-mac">
+                <div class="install-card-title">🍎 Mac 사용자</div>
+                <div class="install-card-desc">
+                    Chrome에서 <b>⋮ 메뉴 → "도구 더보기" → "바로가기 만들기..."</b><br>
+                    또는 Safari에서 <b>공유 → Dock에 추가</b>
+                </div>
+            </div>
+
+            <div class="install-footer">
+                <a href="https://hyshin6664.github.io/slack-dashboard/" target="_blank">
+                    🔗 URL 복사용: hyshin6664.github.io/slack-dashboard/
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .install-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999999;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        animation: installFade 0.2s ease;
+    }
+    .install-modal-overlay.visible {
+        display: flex;
+    }
+    @keyframes installFade {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .install-modal-box {
+        background: white;
+        border-radius: 16px;
+        max-width: 520px;
+        width: 100%;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .install-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 22px;
+        border-bottom: 2px solid #f1f5f9;
+        font-size: 18px;
+        font-weight: 800;
+        color: #1e293b;
+    }
+    .install-modal-close {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        background: #f1f5f9;
+        border: none;
+        border-radius: 50%;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .install-modal-body {
+        padding: 20px 22px;
+    }
+    .install-intro {
+        font-size: 14px;
+        color: #475569;
+        margin-bottom: 18px;
+        line-height: 1.5;
+    }
+    .install-card {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 14px;
+    }
+    .install-card-primary {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border-color: #fbbf24;
+    }
+    .install-card-mac {
+        background: #eef2ff;
+        border-color: #c7d2fe;
+    }
+    .install-card-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 8px;
+    }
+    .install-card-desc {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+        margin-bottom: 12px;
+    }
+    .install-card-desc code {
+        background: #e2e8f0;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    .install-btn {
+        padding: 10px 20px;
+        background: white;
+        border: 2px solid #3b82f6;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e40af;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .install-btn:hover {
+        background: #3b82f6;
+        color: white;
+    }
+    .install-btn-primary {
+        background: #4A154B;
+        border-color: #4A154B;
+        color: white;
+    }
+    .install-btn-primary:hover {
+        background: #611f64;
+    }
+    .install-hint {
+        font-size: 12px;
+        color: #78350f;
+        background: #fef3c7;
+        padding: 8px 10px;
+        border-radius: 6px;
+        margin-top: 10px;
+        line-height: 1.5;
+    }
+    .install-footer {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid #e2e8f0;
+        font-size: 12px;
+        text-align: center;
+    }
+    .install-footer a {
+        color: #3b82f6;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .install-footer a:hover { text-decoration: underline; }
+    /* 설치 버튼 자체를 눈에 띄게 */
+    .btn-install {
+        background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
+        border: 1px solid #fbbf24 !important;
+    }
+    .btn-install:hover {
+        background: linear-gradient(135deg, #fde68a, #fbbf24) !important;
+    }
+</style>
 
 <div class="app-container">
     <!-- 데모 모드 배너 -->

@@ -153,6 +153,159 @@
     // ============================================================
     var LS_KEY_SLACK = 'slack_dashboard_cache_v1';
     var LS_KEY_MSGS = 'slack_dashboard_msgs_v1';
+
+    // ============================================================
+    // [v3.6] 바탕화면 설치 도우미 (Windows/Mac/모바일 모두)
+    // ============================================================
+    var __deferredPwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        __deferredPwaPrompt = e;
+        // 버튼 있으면 활성화 표시
+        var btn = document.getElementById('installPwaBtn');
+        if (btn) btn.disabled = false;
+    });
+    window.addEventListener('appinstalled', function() {
+        try { showToast('✅ 설치 완료! 바탕화면/시작 메뉴에서 실행하세요'); } catch(e) {}
+        __deferredPwaPrompt = null;
+        try { localStorage.setItem('slack_dashboard_installed', '1'); } catch(e) {}
+    });
+
+    function detectPlatform() {
+        var ua = navigator.userAgent;
+        var isMac = /Mac|iPhone|iPad|iPod/.test(ua) && !/Windows/.test(ua);
+        var isWindows = /Windows/.test(ua);
+        var isMobile = /Mobi|Android|iPhone|iPad/.test(ua);
+        var isSafari = /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua);
+        var isChrome = /Chrome|Chromium/.test(ua) && !/Edg/.test(ua);
+        var isEdge = /Edg/.test(ua);
+        var isWhale = /Whale/.test(ua);
+        return {
+            isMac: isMac, isWindows: isWindows, isMobile: isMobile,
+            isSafari: isSafari, isChrome: isChrome, isEdge: isEdge, isWhale: isWhale,
+            pwaSupported: isChrome || isEdge || isWhale  // Chromium 기반만 beforeinstallprompt 지원
+        };
+    }
+
+    function openInstallModal() {
+        var modal = document.getElementById('installModal');
+        if (!modal) return;
+        modal.classList.add('visible');
+        // 플랫폼에 따라 UI 조정
+        var p = detectPlatform();
+        var pwaBtn = document.getElementById('installPwaBtn');
+        var pwaHint = document.getElementById('installPwaHint');
+        if (pwaBtn) {
+            if (!p.pwaSupported) {
+                // Safari 등 PWA install prompt 미지원
+                pwaBtn.disabled = true;
+                pwaBtn.textContent = '🍎 Safari에선 아래 방법 사용';
+                if (pwaHint) {
+                    pwaHint.style.display = 'block';
+                    pwaHint.innerHTML = '⚠️ Safari는 자동 설치 미지원. <b>Chrome/Edge로 열거나</b> 아래 "Safari용" 방법 사용';
+                }
+            } else if (!__deferredPwaPrompt) {
+                // beforeinstallprompt 아직 안 발생
+                pwaBtn.textContent = '📦 설치 시도 (또는 주소창 ⊕ 아이콘)';
+                if (pwaHint) {
+                    pwaHint.style.display = 'block';
+                    pwaHint.innerHTML = '💡 이미 설치되어 있으면 이 버튼 비활성. 주소창 우측의 <b>⊕ 또는 설치 아이콘</b>을 클릭해서 설치하세요';
+                }
+            } else {
+                pwaBtn.textContent = '📦 지금 설치';
+                if (pwaHint) pwaHint.style.display = 'none';
+            }
+        }
+    }
+    window.openInstallModal = openInstallModal;
+
+    function closeInstallModal() {
+        var modal = document.getElementById('installModal');
+        if (modal) modal.classList.remove('visible');
+    }
+    window.closeInstallModal = closeInstallModal;
+
+    function triggerPwaInstall() {
+        // 1. 알림 권한도 겸사 요청 (사용자 제스처 필요)
+        if ('Notification' in window && Notification.permission === 'default') {
+            try { Notification.requestPermission(); } catch(e) {}
+        }
+        // 2. PWA install prompt
+        if (__deferredPwaPrompt) {
+            __deferredPwaPrompt.prompt();
+            __deferredPwaPrompt.userChoice.then(function(result) {
+                if (result.outcome === 'accepted') {
+                    showToast('✅ 설치 진행 중...');
+                } else {
+                    showToast('설치 취소됨');
+                }
+                __deferredPwaPrompt = null;
+            });
+        } else {
+            // prompt 없으면 수동 안내
+            var p = detectPlatform();
+            if (p.isChrome || p.isEdge || p.isWhale) {
+                showToast('주소창 우측 ⊕ 아이콘 클릭해서 설치하세요 (이미 설치됐다면 비활성)');
+            } else if (p.isSafari && p.isMac) {
+                showToast('Safari: 공유(□↑) → Dock에 추가');
+            } else if (p.isSafari && p.isMobile) {
+                showToast('iOS Safari: 공유 → 홈 화면에 추가');
+            } else {
+                showToast('Chrome 또는 Edge에서 접속해주세요');
+            }
+        }
+    }
+    window.triggerPwaInstall = triggerPwaInstall;
+
+    function downloadBatShortcut() {
+        var p = detectPlatform();
+        var url = 'https://hyshin6664.github.io/slack-dashboard/';
+        if (p.isMac) {
+            // Mac: .command 파일 다운로드 + 실행 권한 부여 안내
+            var script = '#!/bin/bash\n' +
+                'open -na "Google Chrome" --args --app=' + url + '\n';
+            _downloadFile('Slack대시보드.command', script, 'text/plain');
+            showToast('✅ .command 다운로드! 터미널에서 chmod +x 필요 — 아래 안내 참고');
+            alert(
+                '맥 설치 방법:\n\n' +
+                '1. Finder → 다운로드 폴더\n' +
+                '2. Slack대시보드.command 를 /Applications 폴더로 이동\n' +
+                '3. 터미널 열고 실행: chmod +x "/Applications/Slack대시보드.command"\n' +
+                '4. 더블클릭 → Chrome 앱 모드로 열림\n\n' +
+                '💡 더 간편: Chrome에서 ⋮ → 캐스트, 저장, 공유 → 바로가기 만들기'
+            );
+        } else {
+            // Windows: .bat 파일
+            var bat = '@echo off\r\n' +
+                'start "" chrome --app=' + url + '\r\n' +
+                'if errorlevel 1 start "" "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --app=' + url + '\r\n' +
+                'if errorlevel 1 start "" "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --app=' + url + '\r\n';
+            _downloadFile('Slack대시보드.bat', bat, 'application/octet-stream');
+            showToast('✅ .bat 다운로드! 바탕화면으로 옮기고 더블클릭 (경고 뜨면 "실행" 클릭)');
+        }
+    }
+    window.downloadBatShortcut = downloadBatShortcut;
+
+    function _downloadFile(filename, content, mimeType) {
+        try {
+            // BOM 추가 (UTF-8 한글 파일명 안전)
+            var blob = new Blob([content], { type: mimeType || 'text/plain' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        } catch(e) {
+            alert('다운로드 실패: ' + e.message);
+        }
+    }
+
     function saveSlackCacheToStorage() {
         try {
             localStorage.setItem(LS_KEY_SLACK, JSON.stringify({
