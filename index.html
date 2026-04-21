@@ -65,9 +65,28 @@
                     if (loading) loading.style.display = 'none';
                 }, 500);
 
-                // 5. Service Worker 등록 (알림용)
+                // 5. Service Worker 등록 (알림용) — [v3.8] controller 자동 활성화
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('sw.js').catch(e => console.log('SW 등록 실패:', e));
+                    navigator.serviceWorker.register('sw.js').then(function(reg) {
+                        // SW가 새로 install 됐는데 현재 페이지를 제어 안 하면 → 한 번만 reload
+                        //   (알림 정확히 뜨려면 controller 필요)
+                        if (reg.active && !navigator.serviceWorker.controller) {
+                            if (!sessionStorage.getItem('sw_claimed_v38')) {
+                                sessionStorage.setItem('sw_claimed_v38', '1');
+                                // 부드럽게 SW가 clients.claim() 하도록 약간 대기
+                                setTimeout(function() {
+                                    if (!navigator.serviceWorker.controller) {
+                                        console.log('[SW] controller 없음 → reload');
+                                        window.location.reload();
+                                    }
+                                }, 1500);
+                            }
+                        }
+                    }).catch(function(e) { console.log('SW 등록 실패:', e); });
+                    // controller 바뀌면 로그
+                    navigator.serviceWorker.addEventListener('controllerchange', function() {
+                        console.log('[SW] controller 활성화됨');
+                    });
                 }
             } catch(e) {
                 document.getElementById('loading').innerHTML =
