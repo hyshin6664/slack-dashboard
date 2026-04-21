@@ -66,7 +66,7 @@
 <div id="slackInAppToast"></div>
 
 <div class="top-bar">
-    <div class="top-bar-title">💬 개인대시보드 Slack</div>
+    <div class="top-bar-title" title="개인대시보드 Slack">💬</div>
     <div class="top-bar-actions">
         <!-- [v3.4] 아이콘만 + hover 툴팁 (좁은 PWA에서도 깔끔) -->
         <button class="action-btn btn-icon btn-help-guide" onclick="openHelpGuideModal()" title="사용법 — 처음 쓰는 분들을 위한 안내" aria-label="사용법">📖</button>
@@ -79,12 +79,46 @@
         <!-- 오류신고 버튼은 06.html(수집기)에서 동적 주입됨 -->
     </div>
 
-    <!-- [v3.7] 사용 통계 위젯 (자랑용) -->
-    <div id="dashboardStatsWidget" class="dashboard-stats-widget" style="display:none;" onclick="showDashboardStatsDetail()" title="대시보드 사용 통계">
-        <span>👥</span>
-        <span>오늘 <span id="statToday" class="stats-badge">-</span></span>
-        <span>7일 <span id="stat7day" class="stats-badge">-</span></span>
-        <span>총 <span id="statTotal" class="stats-badge">-</span></span>
+    <!-- [v3.7.2] 사용 통계 — 아이콘만, 클릭 시 상세 모달 -->
+    <button id="dashboardStatsWidget" class="action-btn btn-icon btn-stats" style="display:none;" onclick="showDashboardStatsDetail()" title="대시보드 사용자 수 (클릭으로 상세)" aria-label="사용 통계">👥</button>
+</div>
+
+<!-- [v3.7.2] 사용 통계 상세 모달 -->
+<div id="dashboardStatsModal" class="install-modal-overlay" onclick="if(event.target===this)closeDashboardStatsModal()">
+    <div class="install-modal-box" style="max-width:380px;">
+        <div class="install-modal-header">
+            <span>👥 사용 통계</span>
+            <button class="install-modal-close" onclick="closeDashboardStatsModal()" aria-label="닫기">✕</button>
+        </div>
+        <div class="install-modal-body">
+            <div style="text-align:center; padding:10px 0 20px;">
+                <div style="font-size:13px; color:#64748b; margin-bottom:4px;">이 대시보드를 쓰고 있는 사람</div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
+                <div style="background:linear-gradient(135deg, #fef3c7, #fde68a); border-radius:12px; padding:16px 8px; text-align:center;">
+                    <div style="font-size:11px; color:#78350f; font-weight:700;">오늘</div>
+                    <div id="statDetailToday" style="font-size:28px; font-weight:900; color:#1e293b; margin-top:4px;">-</div>
+                    <div style="font-size:10px; color:#78350f;">명</div>
+                </div>
+                <div style="background:linear-gradient(135deg, #dbeafe, #bfdbfe); border-radius:12px; padding:16px 8px; text-align:center;">
+                    <div style="font-size:11px; color:#1e3a8a; font-weight:700;">최근 7일</div>
+                    <div id="statDetail7day" style="font-size:28px; font-weight:900; color:#1e293b; margin-top:4px;">-</div>
+                    <div style="font-size:10px; color:#1e3a8a;">명</div>
+                </div>
+                <div style="background:linear-gradient(135deg, #ede9fe, #ddd6fe); border-radius:12px; padding:16px 8px; text-align:center;">
+                    <div style="font-size:11px; color:#5b21b6; font-weight:700;">누적</div>
+                    <div id="statDetailTotal" style="font-size:28px; font-weight:900; color:#1e293b; margin-top:4px;">-</div>
+                    <div style="font-size:10px; color:#5b21b6;">명</div>
+                </div>
+            </div>
+            <div style="background:#f8fafc; border-radius:10px; padding:12px; font-size:12px; color:#475569; line-height:1.6; text-align:center;">
+                💡 실제로 이 대시보드에 접속한 <b>고유 사용자 수</b>예요.<br>
+                직원들에게 자랑해보세요! 📢
+            </div>
+            <button class="install-btn install-btn-primary" onclick="copyHelpShareUrl()" style="margin-top:14px; width:100%;">
+                📋 직원 공유용 URL 복사
+            </button>
+        </div>
     </div>
 </div>
 

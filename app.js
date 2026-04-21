@@ -333,6 +333,7 @@
     window.downloadBatShortcut = downloadBatShortcut;
 
     // [v3.7] 대시보드 사용 통계 (자랑용)
+    var __lastStats = null;
     function pingAndLoadStats() {
         // 1) ping (오늘 접속 기록)
         google.script.run
@@ -341,15 +342,13 @@
                 google.script.run
                     .withSuccessHandler(function(r) {
                         if (!r || !r.success) return;
+                        __lastStats = r;
                         var w = document.getElementById('dashboardStatsWidget');
-                        if (!w) return;
-                        var elToday = document.getElementById('statToday');
-                        var el7 = document.getElementById('stat7day');
-                        var elTot = document.getElementById('statTotal');
-                        if (elToday) elToday.textContent = r.today || 0;
-                        if (el7) el7.textContent = r.week || 0;
-                        if (elTot) elTot.textContent = r.total || 0;
-                        w.style.display = 'inline-flex';
+                        if (w) {
+                            // 아이콘만 표시 (클릭하면 상세)
+                            w.style.display = 'inline-flex';
+                            w.title = '👥 대시보드 사용자 — 오늘 ' + (r.today||0) + '명 / 7일 ' + (r.week||0) + '명 / 총 ' + (r.total||0) + '명';
+                        }
                     })
                     .getDashboardStats();
             })
@@ -357,9 +356,40 @@
             .pingUser();
     }
     function showDashboardStatsDetail() {
-        showToast('👥 대시보드 사용자 통계 — 직원들과 공유해보세요!');
+        var modal = document.getElementById('dashboardStatsModal');
+        if (!modal) return;
+        // 최신 통계 다시 가져오기
+        google.script.run
+            .withSuccessHandler(function(r) {
+                if (r && r.success) __lastStats = r;
+                var s = __lastStats || {};
+                var elToday = document.getElementById('statDetailToday');
+                var el7 = document.getElementById('statDetail7day');
+                var elTot = document.getElementById('statDetailTotal');
+                if (elToday) elToday.textContent = s.today || 0;
+                if (el7) el7.textContent = s.week || 0;
+                if (elTot) elTot.textContent = s.total || 0;
+                modal.classList.add('visible');
+            })
+            .withFailureHandler(function() {
+                // 실패해도 캐시로 표시
+                var s = __lastStats || {};
+                var elToday = document.getElementById('statDetailToday');
+                var el7 = document.getElementById('statDetail7day');
+                var elTot = document.getElementById('statDetailTotal');
+                if (elToday) elToday.textContent = s.today || 0;
+                if (el7) el7.textContent = s.week || 0;
+                if (elTot) elTot.textContent = s.total || 0;
+                modal.classList.add('visible');
+            })
+            .getDashboardStats();
+    }
+    function closeDashboardStatsModal() {
+        var modal = document.getElementById('dashboardStatsModal');
+        if (modal) modal.classList.remove('visible');
     }
     window.showDashboardStatsDetail = showDashboardStatsDetail;
+    window.closeDashboardStatsModal = closeDashboardStatsModal;
 
     // [v3.6] 사용법 도움말 모달
     function openHelpGuideModal() {
