@@ -265,7 +265,7 @@
             var script = '#!/bin/bash\n' +
                 'open -na "Google Chrome" --args --app=' + url + '\n';
             _downloadFile('Slack대시보드.command', script, 'text/plain');
-            showToast('✅ .command 다운로드! 터미널에서 chmod +x 필요 — 아래 안내 참고');
+            showToast('✅ .command 다운로드! 아래 안내 참고');
             alert(
                 '맥 설치 방법:\n\n' +
                 '1. Finder → 다운로드 폴더\n' +
@@ -275,13 +275,59 @@
                 '💡 더 간편: Chrome에서 ⋮ → 캐스트, 저장, 공유 → 바로가기 만들기'
             );
         } else {
-            // Windows: .bat 파일
-            var bat = '@echo off\r\n' +
-                'start "" chrome --app=' + url + '\r\n' +
-                'if errorlevel 1 start "" "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --app=' + url + '\r\n' +
-                'if errorlevel 1 start "" "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --app=' + url + '\r\n';
-            _downloadFile('Slack대시보드.bat', bat, 'application/octet-stream');
-            showToast('✅ .bat 다운로드! 바탕화면으로 옮기고 더블클릭 (경고 뜨면 "실행" 클릭)');
+            // [v3.7.1] Windows: 설치 .bat — 한 번 실행하면 바탕화면에 .lnk 자동 생성
+            //   - PowerShell이 .lnk 파일을 Desktop에 만듦
+            //   - 이후 사용자는 바탕화면의 .lnk 더블클릭 → Chrome 앱 모드 실행
+            //   - 이 .bat는 한 번만 실행하면 됨 (설치 후 삭제 OK)
+            var bat =
+                '@echo off\r\n' +
+                'chcp 65001 >nul\r\n' +
+                'setlocal\r\n' +
+                'set APP_URL=' + url + '\r\n' +
+                'set SHORTCUT_NAME=Slack 대시보드\r\n' +
+                'set DESKTOP=%USERPROFILE%\\Desktop\r\n' +
+                'set LNK_PATH=%DESKTOP%\\%SHORTCUT_NAME%.lnk\r\n' +
+                '\r\n' +
+                'rem Chrome 경로 자동 감지\r\n' +
+                'set CHROME_EXE=\r\n' +
+                'if exist "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" set CHROME_EXE=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\r\n' +
+                'if "%CHROME_EXE%"=="" if exist "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" set CHROME_EXE=C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe\r\n' +
+                'if "%CHROME_EXE%"=="" if exist "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe" set CHROME_EXE=%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe\r\n' +
+                '\r\n' +
+                'if "%CHROME_EXE%"=="" (\r\n' +
+                '  echo [!] Chrome을 찾을 수 없어요. Chrome 설치 후 다시 실행하세요.\r\n' +
+                '  pause\r\n' +
+                '  exit /b 1\r\n' +
+                ')\r\n' +
+                '\r\n' +
+                'rem PowerShell로 바탕화면에 .lnk 바로가기 생성\r\n' +
+                'powershell -NoProfile -ExecutionPolicy Bypass -Command ^\r\n' +
+                '  "$s = (New-Object -ComObject WScript.Shell).CreateShortcut(\'%LNK_PATH%\'); $s.TargetPath = \'%CHROME_EXE%\'; $s.Arguments = \'--app=%APP_URL%\'; $s.IconLocation = \'%CHROME_EXE%,0\'; $s.WorkingDirectory = \'%USERPROFILE%\'; $s.Description = \'Slack 대시보드\'; $s.Save()"\r\n' +
+                '\r\n' +
+                'if exist "%LNK_PATH%" (\r\n' +
+                '  echo.\r\n' +
+                '  echo [O] 바탕화면에 "Slack 대시보드" 바로가기를 만들었어요!\r\n' +
+                '  echo     더블클릭으로 실행하세요.\r\n' +
+                '  echo.\r\n' +
+                '  timeout /t 3 >nul\r\n' +
+                ') else (\r\n' +
+                '  echo [!] 바로가기 생성 실패\r\n' +
+                '  pause\r\n' +
+                ')\r\n' +
+                'endlocal\r\n';
+            _downloadFile('설치_Slack대시보드.bat', bat, 'application/octet-stream');
+            showToast('✅ 설치 파일 다운로드! 더블클릭 → 바탕화면에 바로가기 자동 생성');
+            setTimeout(function() {
+                alert(
+                    '✨ 바탕화면 바로가기 자동 설치\n\n' +
+                    '1. 다운로드된 "설치_Slack대시보드.bat" 더블클릭\n' +
+                    '2. Windows 보안 경고 뜨면 "추가 정보 → 실행"\n' +
+                    '3. 검은 창 잠깐 떴다 사라지면 끝!\n' +
+                    '4. 바탕화면에 "Slack 대시보드" 아이콘 생성됨 ✅\n' +
+                    '5. 이 .bat 파일은 더 이상 필요 없음 (삭제 OK)\n\n' +
+                    '💡 바로가기 더블클릭하면 Chrome 앱 모드로 깔끔하게 실행됩니다.'
+                );
+            }, 300);
         }
     }
     window.downloadBatShortcut = downloadBatShortcut;
@@ -786,7 +832,8 @@
                 ? '<span class="slack-chat-unread">' + item.unread + '</span>' : '';
             var unreadClass = (item.unread && item.unread > 0) ? ' unread' : '';
             var safeName = highlightSearchTerm(escapeHtml(item.name), slackSearchQuery);
-            var safePreview = highlightSearchTerm(escapeHtml(item.preview || ''), slackSearchQuery);
+            // [v3.7] 미리보기에도 이모지 코드 변환 (:slightly_smiling_face: 등)
+            var safePreview = highlightSearchTerm(convertEmojiCodes(escapeHtml(item.preview || '')), slackSearchQuery);
             var safeTime = escapeHtml(item.time || '');
             var safeId = String(item.id).replace(/'/g, "\\'");
             html +=
