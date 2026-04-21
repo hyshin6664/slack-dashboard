@@ -190,7 +190,9 @@
         btn.id = 'multiWinHelpBtn';
         btn.className = 'sim-btn';
         btn.title = '대화창 팝업이 안 열릴 때 도움말';
-        btn.textContent = '❓ 도움말';
+        btn.textContent = '❓';
+        btn.className = 'action-btn btn-icon';
+        btn.style.marginLeft = '4px';
         btn.addEventListener('click', showHelpModal);
         actions.appendChild(btn);
         console.log('[multi-window] 도움말 버튼 추가!');

@@ -538,6 +538,27 @@
                 return; // 이후 init 스킵 (Slack 연동 등 비활성)
             }
 
+            // [v3.6.2] PWA 첫 실행 시 창을 카톡 스타일로 좁게 리사이즈
+            //   — 사이드바만 필요 (대화창은 별도 창으로 뜸)
+            //   — 첫 1회만 (사용자가 수동 조절한 크기 존중)
+            try {
+                if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+                    if (!localStorage.getItem('slack_dashboard_sized_v1')) {
+                        var targetW = 540;
+                        var targetH = Math.min(window.screen.availHeight - 80, 960);
+                        var leftPos = Math.max(0, window.screen.availWidth - targetW - 20);
+                        // 리사이즈는 PWA에서만 작동
+                        setTimeout(function() {
+                            try {
+                                window.resizeTo(targetW, targetH);
+                                window.moveTo(leftPos, 20);
+                            } catch(e) {}
+                        }, 300);
+                        localStorage.setItem('slack_dashboard_sized_v1', '1');
+                    }
+                }
+            } catch(e) {}
+
             // [v0.9] 즉시 스켈레톤 표시 (빈 화면 금지!)
             showSlackLoadingSkeleton();
             // [v0.7] 실제 Slack 연결 시도
