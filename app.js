@@ -2938,6 +2938,7 @@
                 lines.push('  [Unread폴링] 현재 간격: ' + (__curIntv / 1000) + '초 (에러연속: ' + slackUnreadErrorStreak + ', 탭가시성: ' + document.visibilityState + ')');
                 lines.push('  [Unread폴링] 호출 ' + (window.__slackUnreadPollCount || 0) + '회, 마지막: ' + (window.__slackLastUnreadAt ? new Date(window.__slackLastUnreadAt).toLocaleTimeString() : 'never'));
                 lines.push('  [Unread폴링] 추적 채널: ' + Object.keys(slackLastUnreadMap).length + '개');
+                lines.push('  [LatestTs폴링] 호출 ' + (window.__slackLatestTsPollCount || 0) + '회, 추적: ' + Object.keys(slackLatestTsMap).length + '개');
                 // [v3.4] 서버 doPost 통계 (Events API가 실제로 작동하는지 확인)
                 try {
                     if (window.__slackServerEventStats) {
@@ -3342,6 +3343,9 @@
     var slackLastUnreadMap = {}; // { channelId: {unread, latestTs} }
     var slackUnreadErrorStreak = 0;
     var slackUnreadLastActivityAt = Date.now();
+    // [v3.7.3] 정밀 알람 — latestTs 기반
+    var slackLatestTsInterval = null;
+    var slackLatestTsMap = {}; // { channelId: ts }
 
     function getCurrentPollingIntervalMs() {
         var now = new Date();
@@ -3465,6 +3469,102 @@
     document.addEventListener('keydown', function() { slackUnreadLastActivityAt = Date.now(); }, { passive: true });
 
     // ============================================================
+    // [v3.7.3] 정밀 알람 폴링 — latestTs 기반 (읽음 여부 무관)
+    // ============================================================
+    // 목적: Slack 공식 앱이 빠르게 읽음 처리해도 메시지 도착 자체 감지
+    // 동작:
+    //   - 20초마다 최근 활동한 DM 10-15개의 최신 ts를 병렬 조회
+    //   - 이전 저장 ts와 비교 → 새 메시지 감지 시 알림
+    //   - 내 메시지는 알림 X (mine 필터)
+    // ============================================================
+    function startSlackLatestTsPolling() {
+        if (slackLatestTsInterval) clearTimeout(slackLatestTsInterval);
+        function loop() {
+            if (!slackRealMode) { slackLatestTsInterval = setTimeout(loop, 20000); return; }
+            // 우선순위: 최근 활동한 DM + 채널 top 15
+            var all = [];
+            dummyDMs.forEach(function(d) { all.push({ id: d.id, ts: d.timeRaw || 0 }); });
+            dummyChannels.forEach(function(c) { all.push({ id: c.id, ts: c.timeRaw || 0 }); });
+            all.sort(function(a, b) { return (b.ts || 0) - (a.ts || 0); });
+            var topIds = all.slice(0, 15).map(function(x) { return x.id; });
+
+            if (topIds.length === 0) {
+                slackLatestTsInterval = setTimeout(loop, 20000);
+                return;
+            }
+
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    window.__slackLatestTsPollCount = (window.__slackLatestTsPollCount || 0) + 1;
+                    if (!res || !res.success) return;
+                    var results = res.results || {};
+                    Object.keys(results).forEach(function(chId) {
+                        var info = results[chId];
+                        if (!info || !info.ts) return;
+                        var prevTs = slackLatestTsMap[chId];
+                        var currTs = parseFloat(info.ts);
+                        if (!prevTs) {
+                            // 첫 관측 → 기록만 (알림 X)
+                            slackLatestTsMap[chId] = currTs;
+                            return;
+                        }
+                        if (currTs > prevTs) {
+                            // 새 메시지 도착!
+                            slackLatestTsMap[chId] = currTs;
+                            // 내 메시지면 알림 X
+                            if (info.mine) return;
+                            // 알림 발사 (닫힌 대화방만)
+                            var popup = findPopup(chId);
+                            if (popup && !popup.minimized) return; // 열려있으면 delta 폴링이 처리
+                            // 메타 찾기
+                            var meta = null;
+                            for (var i = 0; i < dummyDMs.length; i++) if (dummyDMs[i].id === chId) { meta = dummyDMs[i]; break; }
+                            if (!meta) for (var j = 0; j < dummyChannels.length; j++) if (dummyChannels[j].id === chId) { meta = dummyChannels[j]; break; }
+                            var senderName = info.from || (meta ? meta.name : '새 메시지');
+                            try { startTabFlash(senderName, info.text); } catch(e) {}
+                            try { showInAppToast(senderName, info.text, chId); } catch(e) {}
+                            try { playSlackDing(); } catch(e) {}
+                            window.__slackTotalAlerts = (window.__slackTotalAlerts || 0) + 1;
+                            // 대화 목록 업데이트 (preview + 시간)
+                            try {
+                                updateChatListOrder(chId, {
+                                    from: info.from || '',
+                                    text: info.text || '',
+                                    time: formatTsBrief(info.ts),
+                                    ts: info.ts,
+                                    mine: false
+                                });
+                            } catch(e) {}
+                        }
+                    });
+                })
+                .withFailureHandler(function() {})
+                .getRecentLatestTs(JSON.stringify(topIds));
+
+            // 다음 폴링 (시간대별로 조정)
+            var nextDelay = 20000; // 기본 20초
+            try {
+                var h = new Date().getHours();
+                // 업무시간엔 더 자주 (10초), 야간엔 덜 자주 (60초)
+                if (h >= 9 && h < 21) nextDelay = 10000;
+                else if (h >= 21 || h < 9) nextDelay = 60000;
+            } catch(e) {}
+            slackLatestTsInterval = setTimeout(loop, nextDelay);
+        }
+        loop();
+    }
+
+    // 간단한 ts 포맷
+    function formatTsBrief(ts) {
+        try {
+            var d = new Date(parseFloat(ts) * 1000);
+            var hh = String(d.getHours()).padStart(2, '0');
+            var mm = String(d.getMinutes()).padStart(2, '0');
+            return hh + ':' + mm;
+        } catch(e) { return ''; }
+    }
+
+    // ============================================================
     // [v2.9] 스마트 폴링 — 포커스 팝업은 1초 Delta, 나머지는 3초
     // ============================================================
     function startSlackPolling() {
@@ -3473,6 +3573,8 @@
         if (slackCacheInterval) clearInterval(slackCacheInterval);
         // [v3.5] unread 폴링도 같이 시작
         startSlackUnreadPolling();
+        // [v3.7.3] 정밀 알람 폴링 (latestTs 기반, 읽음 여부 무관)
+        startSlackLatestTsPolling();
 
         // === 1. 포커스 팝업 전용: 1초 Delta 폴링 (초고속!) ===
         slackDeltaInterval = setInterval(function() {
