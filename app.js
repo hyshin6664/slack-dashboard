@@ -1746,7 +1746,20 @@
                 '</div>';
         }
         body.innerHTML = threadAlertHtml + html;
-        body.scrollTop = body.scrollHeight;
+        // [v3.8] 스크롤을 맨 아래(최신 메시지)로 — DOM 렌더 완료 후 확실히 실행
+        var doScroll = function() {
+            body.scrollTop = body.scrollHeight;
+        };
+        doScroll();
+        // requestAnimationFrame으로 이미지 등 async 리소스 로드 후 재보정
+        if (typeof requestAnimationFrame === 'function') {
+            requestAnimationFrame(function() {
+                doScroll();
+                // 추가 보정 (이미지 로딩 시간 고려)
+                setTimeout(doScroll, 100);
+                setTimeout(doScroll, 500);
+            });
+        }
     }
 
     // [v0.5] 날짜 구분선 포맷
@@ -2987,8 +3000,8 @@
                 lines.push('  마지막 Events API 응답: ' + (window.__slackLastAlertAt ? new Date(window.__slackLastAlertAt).toLocaleTimeString() : 'never'));
                 lines.push('  마지막 활성 채널: ' + (window.__slackLastEventChannels || '없음'));
                 // [v3.5] Unread 폴링 통계
-                var __curIntv = getCurrentPollingIntervalMs();
-                lines.push('  [Unread폴링] 현재 간격: ' + (__curIntv / 1000) + '초 (에러연속: ' + slackUnreadErrorStreak + ', 탭가시성: ' + document.visibilityState + ')');
+                var __curIntv = (typeof getMasterInterval === 'function') ? getMasterInterval() : 3000;
+                lines.push('  [Master폴링] 현재 간격: ' + (__curIntv / 1000) + '초 (에러연속: ' + slackErrorStreak + ', 탭가시성: ' + document.visibilityState + ')');
                 lines.push('  [Unread폴링] 호출 ' + (window.__slackUnreadPollCount || 0) + '회, 마지막: ' + (window.__slackLastUnreadAt ? new Date(window.__slackLastUnreadAt).toLocaleTimeString() : 'never'));
                 lines.push('  [Unread폴링] 추적 채널: ' + Object.keys(slackLastUnreadMap).length + '개');
                 lines.push('  [LatestTs폴링] 호출 ' + (window.__slackLatestTsPollCount || 0) + '회, 추적: ' + Object.keys(slackLatestTsMap).length + '개');
