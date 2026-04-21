@@ -69,6 +69,7 @@
     <div class="top-bar-title">💬 개인대시보드 Slack</div>
     <div class="top-bar-actions">
         <!-- [v3.4] 아이콘만 + hover 툴팁 (좁은 PWA에서도 깔끔) -->
+        <button class="action-btn btn-icon btn-help-guide" onclick="openHelpGuideModal()" title="사용법 — 처음 쓰는 분들을 위한 안내" aria-label="사용법">📖</button>
         <button class="action-btn btn-icon btn-install" onclick="openInstallModal()" title="바탕화면에 설치하기" aria-label="설치">💾</button>
         <button class="action-btn btn-icon" onclick="slackDisconnect()" title="Slack 연결 해제 후 재연동" aria-label="연결 해제">🔌</button>
         <button class="action-btn btn-icon" onclick="openSlackUpdatesModal()" title="소식 — 업데이트 이력" aria-label="소식">🎁</button>
@@ -78,6 +79,520 @@
         <!-- 오류신고 버튼은 06.html(수집기)에서 동적 주입됨 -->
     </div>
 </div>
+
+<!-- [v3.6] 사용법 도움말 모달 (공지용 자료) -->
+<div id="helpGuideModal" class="help-guide-overlay" onclick="if(event.target===this)closeHelpGuideModal()">
+    <div class="help-guide-box">
+        <div class="help-guide-header">
+            <div>
+                <div class="help-guide-title">📖 개인대시보드 Slack 사용법</div>
+                <div class="help-guide-subtitle">처음 쓰시는 분들을 위한 안내 · 3분이면 끝!</div>
+            </div>
+            <button class="help-guide-close" onclick="closeHelpGuideModal()">✕</button>
+        </div>
+
+        <div class="help-guide-body">
+            <!-- 왜 만들었나 -->
+            <div class="help-section help-intro">
+                <div class="help-icon-big">💡</div>
+                <div>
+                    <div class="help-section-title">왜 만들었나?</div>
+                    <div class="help-section-desc">
+                        Slack 공식 앱이 <b>무거워서 컴퓨터 느려진다</b>는 분들 위해 만든 가벼운 버전이에요.<br>
+                        카카오톡처럼 간단하게 쓰세요! 👍
+                    </div>
+                </div>
+            </div>
+
+            <!-- 스텝 1: 접속 -->
+            <div class="help-step">
+                <div class="help-step-num">1</div>
+                <div class="help-step-content">
+                    <div class="help-step-title">📲 대시보드 접속</div>
+                    <div class="help-step-desc">
+                        <b>Chrome 또는 Edge 브라우저</b>로 아래 주소 접속:
+                    </div>
+                    <div class="help-url-box">hyshin6664.github.io/slack-dashboard/</div>
+                </div>
+            </div>
+
+            <!-- 스텝 2: Slack 연동 -->
+            <div class="help-step">
+                <div class="help-step-num">2</div>
+                <div class="help-step-content">
+                    <div class="help-step-title">🔗 Slack 연동 (처음 한 번만)</div>
+                    <div class="help-step-desc">
+                        <b>"Slack 연동하기"</b> 버튼 클릭 → <b>"허용"</b> → 끝!
+                    </div>
+                    <div class="help-mock-btn">🔗 Slack 연동하기</div>
+                </div>
+            </div>
+
+            <!-- 스텝 3: 바탕화면 설치 -->
+            <div class="help-step">
+                <div class="help-step-num">3</div>
+                <div class="help-step-content">
+                    <div class="help-step-title">💾 바탕화면에 설치 (편하게 쓰려면)</div>
+                    <div class="help-step-desc">
+                        우상단 <b>💾 설치</b> 버튼 → <b>"지금 설치"</b> 클릭<br>
+                        → 시작 메뉴/바탕화면에 아이콘 생성 → <b>브라우저 안 열고</b> 바로 사용!
+                    </div>
+                </div>
+            </div>
+
+            <!-- 대화 예시 -->
+            <div class="help-section-title help-section-title-big">💬 이렇게 쓰면 돼요</div>
+
+            <div class="help-mock-layout">
+                <!-- 왼쪽: 대화 목록 -->
+                <div class="help-mock-sidebar">
+                    <div class="help-mock-sidebar-title">채팅 목록</div>
+                    <div class="help-mock-chat-item unread">
+                        <div class="help-mock-avatar" style="background:#3b82f6;">김</div>
+                        <div class="help-mock-chat-info">
+                            <div class="help-mock-chat-name">김철수</div>
+                            <div class="help-mock-chat-preview">점심 뭐 드세요?</div>
+                        </div>
+                        <div class="help-mock-badge">2</div>
+                    </div>
+                    <div class="help-mock-chat-item">
+                        <div class="help-mock-avatar" style="background:#ec4899;">이</div>
+                        <div class="help-mock-chat-info">
+                            <div class="help-mock-chat-name">이영희</div>
+                            <div class="help-mock-chat-preview">회의자료 공유드려요</div>
+                        </div>
+                    </div>
+                    <div class="help-mock-chat-item">
+                        <div class="help-mock-avatar" style="background:#10b981;">#</div>
+                        <div class="help-mock-chat-info">
+                            <div class="help-mock-chat-name"># 전체공지</div>
+                            <div class="help-mock-chat-preview">박민수: 내일 워크샵 안내</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 오른쪽: 대화창 -->
+                <div class="help-mock-chat">
+                    <div class="help-mock-chat-header">
+                        <div class="help-mock-avatar" style="background:#3b82f6;">김</div>
+                        <div>김철수 <span class="help-mock-badge-label">👤 DM</span></div>
+                    </div>
+                    <div class="help-mock-chat-body">
+                        <div class="help-mock-msg-row">
+                            <div class="help-mock-avatar-sm" style="background:#3b82f6;">김</div>
+                            <div class="help-mock-bubble">점심 뭐 드세요?</div>
+                        </div>
+                        <div class="help-mock-msg-row mine">
+                            <div class="help-mock-bubble mine">오늘은 짜장면요 🍜</div>
+                        </div>
+                        <div class="help-mock-msg-row">
+                            <div class="help-mock-avatar-sm" style="background:#3b82f6;">김</div>
+                            <div class="help-mock-bubble">좋네요! 같이 가요 😊</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="help-tip-box">
+                💡 왼쪽에서 대화방 클릭 → 오른쪽 또는 별도 창에서 대화 시작 (Chrome은 별도 창, 다른 브라우저는 전체 화면)
+            </div>
+
+            <!-- 알림 안내 -->
+            <div class="help-section-title help-section-title-big">🔔 알림 받기 (Windows)</div>
+            <div class="help-step">
+                <div class="help-step-num">⚙️</div>
+                <div class="help-step-content">
+                    <div class="help-step-title">Windows 알림 설정</div>
+                    <div class="help-step-desc">
+                        알림 안 뜨면 확인하세요:<br>
+                        <code>Win + I → 시스템 → 알림 → 방해 금지 "끔"</code>
+                    </div>
+                </div>
+            </div>
+            <div class="help-step">
+                <div class="help-step-num">✨</div>
+                <div class="help-step-content">
+                    <div class="help-step-title">집중 모드 꺼기</div>
+                    <div class="help-step-desc">
+                        같은 화면에서 <b>"자동으로 방해 금지 켜기"</b> 펼쳐서 자동 규칙 모두 해제
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mac 안내 -->
+            <div class="help-section-title help-section-title-big">🍎 Mac 사용자</div>
+            <div class="help-step">
+                <div class="help-step-num">🍎</div>
+                <div class="help-step-content">
+                    <div class="help-step-title">Mac도 동일</div>
+                    <div class="help-step-desc">
+                        • <b>Chrome/Edge</b>: 위 단계 그대로 (💾 설치 버튼)<br>
+                        • <b>Safari</b>: 상단 <b>공유 → Dock에 추가</b>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ -->
+            <div class="help-section-title help-section-title-big">❓ 자주 묻는 질문</div>
+            <div class="help-faq">
+                <div class="help-faq-q">Q. 내 데이터는 안전한가요?</div>
+                <div class="help-faq-a">
+                    네. 각자 본인 Slack 계정으로만 OAuth 연동되고, 토큰은 사용자별로 격리돼요.
+                    다른 사람 메시지 못 봐요.
+                </div>
+
+                <div class="help-faq-q">Q. 여러 대화창 동시에 열 수 있나요?</div>
+                <div class="help-faq-a">
+                    Chrome에서는 <b>가능</b> (카톡 PC앱처럼 별도 창). 다른 브라우저는 한 번에 하나씩.
+                </div>
+
+                <div class="help-faq-q">Q. 알림이 느려요</div>
+                <div class="help-faq-a">
+                    업무시간(9-12, 13-18) 3초, 점심 10초, 저녁 5초, 야간 60초 간격으로 확인해요.
+                    가볍게 쓰려고 주기를 조정했어요.
+                </div>
+
+                <div class="help-faq-q">Q. 이미 공식 Slack 앱 쓰고 있는데?</div>
+                <div class="help-faq-a">
+                    병행 가능해요. 이 대시보드는 <b>가볍게 메시지만 확인</b>할 때 편해요.
+                </div>
+            </div>
+
+            <!-- 공유용 푸터 -->
+            <div class="help-share-footer">
+                <div class="help-share-title">📢 직원들에게 공유하세요!</div>
+                <div class="help-share-url">hyshin6664.github.io/slack-dashboard/</div>
+                <button class="install-btn install-btn-primary" onclick="copyHelpShareUrl()" style="margin-top:10px;">
+                    📋 URL 복사
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .help-guide-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 999998;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+    .help-guide-overlay.visible { display: flex; }
+    .help-guide-box {
+        background: white;
+        border-radius: 18px;
+        max-width: 680px;
+        width: 100%;
+        max-height: 92vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 70px rgba(0,0,0,0.35);
+    }
+    .help-guide-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border-radius: 18px 18px 0 0;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+    .help-guide-title {
+        font-size: 20px;
+        font-weight: 900;
+        color: #1e293b;
+    }
+    .help-guide-subtitle {
+        font-size: 13px;
+        color: #78350f;
+        margin-top: 3px;
+    }
+    .help-guide-close {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        background: rgba(255,255,255,0.7);
+        border: none;
+        border-radius: 50%;
+        font-size: 14px;
+        cursor: pointer;
+    }
+    .help-guide-body {
+        padding: 24px;
+    }
+    .help-section {
+        display: flex;
+        gap: 14px;
+        padding: 16px;
+        background: #f8fafc;
+        border-radius: 12px;
+        margin-bottom: 18px;
+    }
+    .help-intro {
+        background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    }
+    .help-icon-big {
+        font-size: 36px;
+        flex-shrink: 0;
+    }
+    .help-section-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+    .help-section-title-big {
+        font-size: 17px;
+        font-weight: 900;
+        color: #4A154B;
+        margin: 22px 0 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    .help-section-desc {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+    }
+    .help-step {
+        display: flex;
+        gap: 12px;
+        padding: 14px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        margin-bottom: 10px;
+    }
+    .help-step-num {
+        flex-shrink: 0;
+        width: 34px;
+        height: 34px;
+        background: #4A154B;
+        color: white;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 15px;
+    }
+    .help-step-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+    .help-step-desc {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+    }
+    .help-step-desc code {
+        background: #f1f5f9;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #0f172a;
+    }
+    .help-url-box {
+        margin-top: 10px;
+        padding: 10px 14px;
+        background: #0f172a;
+        color: #7dd3fc;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 700;
+    }
+    .help-mock-btn {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 10px 20px;
+        background: #4A154B;
+        color: white;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 800;
+    }
+    /* 가상 대화 UI 미리보기 */
+    .help-mock-layout {
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 8px;
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 10px;
+        margin-bottom: 14px;
+    }
+    .help-mock-sidebar, .help-mock-chat {
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        font-size: 11px;
+    }
+    .help-mock-sidebar-title {
+        padding: 8px 10px;
+        background: #22c55e;
+        color: white;
+        font-weight: 700;
+    }
+    .help-mock-chat-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .help-mock-chat-item.unread {
+        background: #fef3c7;
+    }
+    .help-mock-avatar {
+        width: 24px; height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 11px;
+        flex-shrink: 0;
+    }
+    .help-mock-avatar-sm {
+        width: 20px; height: 20px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 700;
+        font-size: 10px;
+        flex-shrink: 0;
+    }
+    .help-mock-chat-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .help-mock-chat-name {
+        font-weight: 700;
+        font-size: 12px;
+        color: #1e293b;
+    }
+    .help-mock-chat-preview {
+        font-size: 10px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .help-mock-badge {
+        background: #ef4444;
+        color: white;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 1px 6px;
+        border-radius: 10px;
+    }
+    .help-mock-chat-header {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 10px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .help-mock-badge-label {
+        font-size: 9px;
+        background: #f1f5f9;
+        padding: 1px 5px;
+        border-radius: 5px;
+        margin-left: 4px;
+        color: #64748b;
+        font-weight: 600;
+    }
+    .help-mock-chat-body {
+        padding: 10px;
+        background: #b2c7d9;
+    }
+    .help-mock-msg-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+    .help-mock-msg-row.mine {
+        justify-content: flex-end;
+    }
+    .help-mock-bubble {
+        max-width: 70%;
+        padding: 6px 10px;
+        background: white;
+        border-radius: 10px;
+        font-size: 11px;
+        color: #1e293b;
+    }
+    .help-mock-bubble.mine {
+        background: #fef033;
+        color: #1e293b;
+    }
+    .help-tip-box {
+        padding: 10px 14px;
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        border-radius: 6px;
+        font-size: 12px;
+        color: #78350f;
+        line-height: 1.5;
+        margin-bottom: 14px;
+    }
+    .help-faq {
+        margin-bottom: 16px;
+    }
+    .help-faq-q {
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 13px;
+        margin-top: 12px;
+        margin-bottom: 4px;
+    }
+    .help-faq-a {
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.6;
+        padding-left: 10px;
+    }
+    .help-share-footer {
+        margin-top: 24px;
+        padding: 18px;
+        background: linear-gradient(135deg, #4A154B, #611f64);
+        border-radius: 12px;
+        text-align: center;
+        color: white;
+    }
+    .help-share-title {
+        font-size: 15px;
+        font-weight: 800;
+        margin-bottom: 8px;
+    }
+    .help-share-url {
+        background: rgba(255,255,255,0.2);
+        padding: 8px 14px;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 700;
+    }
+    /* 도움말 버튼 강조 */
+    .btn-help-guide {
+        background: linear-gradient(135deg, #dbeafe, #bfdbfe) !important;
+        border: 1px solid #3b82f6 !important;
+    }
+</style>
 
 <!-- [v3.6] 설치 안내 모달 -->
 <div id="installModal" class="install-modal-overlay" onclick="if(event.target===this)closeInstallModal()">

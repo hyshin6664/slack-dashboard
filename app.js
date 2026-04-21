@@ -286,6 +286,48 @@
     }
     window.downloadBatShortcut = downloadBatShortcut;
 
+    // [v3.6] 사용법 도움말 모달
+    function openHelpGuideModal() {
+        var m = document.getElementById('helpGuideModal');
+        if (m) m.classList.add('visible');
+    }
+    function closeHelpGuideModal() {
+        var m = document.getElementById('helpGuideModal');
+        if (m) m.classList.remove('visible');
+    }
+    function copyHelpShareUrl() {
+        var url = 'https://hyshin6664.github.io/slack-dashboard/';
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(function() {
+                    showToast('✅ URL 복사됨! 직원들에게 공유하세요');
+                }).catch(function() {
+                    _fallbackCopyText(url);
+                });
+            } else {
+                _fallbackCopyText(url);
+            }
+        } catch(e) { _fallbackCopyText(url); }
+    }
+    function _fallbackCopyText(text) {
+        try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showToast('✅ URL 복사됨!');
+        } catch(e) {
+            showToast('복사 실패 — 수동으로 복사해주세요');
+        }
+    }
+    window.openHelpGuideModal = openHelpGuideModal;
+    window.closeHelpGuideModal = closeHelpGuideModal;
+    window.copyHelpShareUrl = copyHelpShareUrl;
+
     function _downloadFile(filename, content, mimeType) {
         try {
             // BOM 추가 (UTF-8 한글 파일명 안전)
