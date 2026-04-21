@@ -286,6 +286,35 @@
     }
     window.downloadBatShortcut = downloadBatShortcut;
 
+    // [v3.7] 대시보드 사용 통계 (자랑용)
+    function pingAndLoadStats() {
+        // 1) ping (오늘 접속 기록)
+        google.script.run
+            .withSuccessHandler(function() {
+                // 2) 통계 조회 → 위젯 표시
+                google.script.run
+                    .withSuccessHandler(function(r) {
+                        if (!r || !r.success) return;
+                        var w = document.getElementById('dashboardStatsWidget');
+                        if (!w) return;
+                        var elToday = document.getElementById('statToday');
+                        var el7 = document.getElementById('stat7day');
+                        var elTot = document.getElementById('statTotal');
+                        if (elToday) elToday.textContent = r.today || 0;
+                        if (el7) el7.textContent = r.week || 0;
+                        if (elTot) elTot.textContent = r.total || 0;
+                        w.style.display = 'inline-flex';
+                    })
+                    .getDashboardStats();
+            })
+            .withFailureHandler(function() {})
+            .pingUser();
+    }
+    function showDashboardStatsDetail() {
+        showToast('👥 대시보드 사용자 통계 — 직원들과 공유해보세요!');
+    }
+    window.showDashboardStatsDetail = showDashboardStatsDetail;
+
     // [v3.6] 사용법 도움말 모달
     function openHelpGuideModal() {
         var m = document.getElementById('helpGuideModal');
@@ -912,6 +941,8 @@
                     });
                 }
                 showToast('Slack 연결! 친구 ' + dummyFriends.length + '명, 채팅 ' + dummyDMs.length + '개');
+                // [v3.7] 사용 통계 — ping + 위젯 로드
+                try { pingAndLoadStats(); } catch(e) {}
                 // [v1.2] 연결 해제 버튼 표시
                 var dcBtn = document.getElementById('slackDisconnectBtn');
                 if (dcBtn) dcBtn.style.display = 'inline-block';
@@ -1471,7 +1502,8 @@
             var mineClass = m.mine ? ' mine' : '';
             var avatarStyle = 'background:' + avatarColorFromName(m.from || '?') + ';';
             var safeFrom = escapeHtml(m.from || '');
-            var safeText = highlightMentions(escapeHtml(m.text || ''));
+            // [v3.7] 이모지 코드(:grin: 등) → 유니코드 변환 + 멘션 하이라이트
+            var safeText = highlightMentions(convertEmojiCodes(escapeHtml(m.text || '')));
             var safeTime = escapeHtml(m.time || '');
             var msgId = escapeHtml(m.id || '');
             var senderName = (!m.mine && (isGroupChat || !p)) ? '<div class="msg-sender-name">' + safeFrom + '</div>' : '';
@@ -1491,8 +1523,21 @@
             var editedMark = m.edited ? ' <span class="msg-edited">(수정됨)</span>' : '';
             // 말풍선 내용
             var bubbleContent;
+            // [v3.7] Slack API가 반환한 files 배열 처리 — 이미지는 인라인 표시
+            var slackFilesHtml = '';
+            if (m.files && m.files.length > 0) {
+                slackFilesHtml = m.files.map(function(f) {
+                    return renderSlackFile(f, id, msgId);
+                }).join('');
+            }
             if (m.file) {
+                // 클라이언트 생성 파일(업로드) — 기존 로직
                 bubbleContent = renderFileBubble(m.file);
+            } else if (slackFilesHtml) {
+                // Slack 서버 파일 (이미지 등)
+                var textHtml = safeText ? (quoteBox + safeText + editedMark) : '';
+                var bubbleOpen = textHtml ? '<div class="msg-bubble">' + textHtml + '</div>' : '';
+                bubbleContent = bubbleOpen + slackFilesHtml;
             } else {
                 bubbleContent = '<div class="msg-bubble">' + quoteBox + safeText + editedMark + '</div>';
             }
@@ -1502,9 +1547,11 @@
                 reactionsHtml = '<div class="msg-reactions">';
                 m.reactions.forEach(function(r) {
                     var isMine = r.users && r.users.indexOf(myUserName) !== -1;
+                    // [v3.7] 리액션 이모지 코드 변환
+                    var displayEmoji = convertEmojiCodes(r.emoji || '');
                     reactionsHtml +=
                         '<div class="msg-reaction' + (isMine ? ' mine' : '') + '" onclick="toggleReaction(\'' + id + '\', \'' + msgId + '\', \'' + r.emoji + '\')">' +
-                            '<span class="msg-reaction-emoji">' + r.emoji + '</span>' +
+                            '<span class="msg-reaction-emoji">' + displayEmoji + '</span>' +
                             '<span class="msg-reaction-count">' + (r.users ? r.users.length : 0) + '</span>' +
                         '</div>';
                 });
@@ -1593,6 +1640,158 @@
         if (!text) return '';
         return text.replace(/@(\S+)/g, '<span class="mention-inline">@$1</span>');
     }
+
+    // [v3.7] Slack 이모지 shortcode → 유니코드 매핑 (자주 쓰는 것들)
+    var EMOJI_MAP = {
+        // 기본
+        'smile':'😄','grin':'😁','joy':'😂','laughing':'😆','sweat_smile':'😅',
+        'rofl':'🤣','slightly_smiling_face':'🙂','upside_down_face':'🙃','wink':'😉','blush':'😊',
+        'innocent':'😇','heart_eyes':'😍','star_struck':'🤩','kissing_heart':'😘','kissing_smiling_eyes':'😙',
+        'yum':'😋','stuck_out_tongue':'😛','stuck_out_tongue_winking_eye':'😜','money_mouth_face':'🤑','hugging_face':'🤗',
+        'thinking_face':'🤔','shushing_face':'🤫','face_with_raised_eyebrow':'🤨','neutral_face':'😐','expressionless':'😑',
+        'no_mouth':'😶','smirk':'😏','unamused':'😒','relieved':'😌','pensive':'😔',
+        'sleepy':'😪','drooling_face':'🤤','sleeping':'😴','mask':'😷','face_with_thermometer':'🤒',
+        'face_with_head_bandage':'🤕','nauseated_face':'🤢','sneezing_face':'🤧','dizzy_face':'😵','cowboy':'🤠',
+        'partying_face':'🥳','sunglasses':'😎','face_with_monocle':'🧐','confused':'😕','worried':'😟',
+        'slightly_frowning_face':'🙁','frowning2':'☹️','open_mouth':'😮','hushed':'😯','astonished':'😲',
+        'flushed':'😳','fearful':'😨','cold_sweat':'😰','cry':'😢','sob':'😭',
+        'scream':'😱','confounded':'😖','persevere':'😣','disappointed':'😞','sweat':'😓',
+        'weary':'😩','tired_face':'😫','angry':'😠','rage':'😡','pouting_face':'😡',
+        // 제스처
+        '+1':'👍','thumbsup':'👍','-1':'👎','thumbsdown':'👎','ok_hand':'👌','v':'✌️',
+        'crossed_fingers':'🤞','call_me_hand':'🤙','raised_back_of_hand':'🤚','raised_hand':'✋','vulcan_salute':'🖖',
+        'point_left':'👈','point_right':'👉','point_up_2':'👆','point_down':'👇','point_up':'☝️',
+        'fu':'🖕','wave':'👋','hand_splayed':'🖐','muscle':'💪','pray':'🙏',
+        'handshake':'🤝','clap':'👏','raised_hands':'🙌','open_hands':'👐',
+        // 하트/상징
+        'heart':'❤️','orange_heart':'🧡','yellow_heart':'💛','green_heart':'💚','blue_heart':'💙',
+        'purple_heart':'💜','black_heart':'🖤','broken_heart':'💔','two_hearts':'💕','sparkling_heart':'💖',
+        'heartbeat':'💓','heartpulse':'💗','cupid':'💘','gift_heart':'💝','revolving_hearts':'💞',
+        'heart_decoration':'💟','peace':'☮️','cross':'✝️','star_of_david':'✡️','om':'🕉️',
+        // 축하/자주쓰는
+        'tada':'🎉','confetti_ball':'🎊','balloon':'🎈','gift':'🎁','birthday':'🎂',
+        'cake':'🍰','champagne':'🍾','clinking_glasses':'🥂','beer':'🍺','beers':'🍻',
+        'coffee':'☕','tea':'🍵','fire':'🔥','sparkles':'✨','star':'⭐',
+        'star2':'🌟','100':'💯','boom':'💥','zap':'⚡','warning':'⚠️',
+        'white_check_mark':'✅','ballot_box_with_check':'☑️','heavy_check_mark':'✔️','x':'❌','negative_squared_cross_mark':'❎',
+        'question':'❓','exclamation':'❗','grey_question':'❔','grey_exclamation':'❕','bangbang':'‼️',
+        'interrobang':'⁉️','radio_button':'🔘','white_circle':'⚪','black_circle':'⚫','red_circle':'🔴',
+        'large_blue_circle':'🔵','large_orange_diamond':'🔶','large_blue_diamond':'🔷','small_orange_diamond':'🔸','small_blue_diamond':'🔹',
+        // 자주 쓰는 추가
+        'rocket':'🚀','airplane':'✈️','car':'🚗','bus':'🚌','taxi':'🚕',
+        'ship':'🚢','anchor':'⚓','house':'🏠','office':'🏢','school':'🏫',
+        'hospital':'🏥','bank':'🏦','sun':'☀️','cloud':'☁️','rainbow':'🌈',
+        'snowflake':'❄️','umbrella':'☂️','moon':'🌙','earth_asia':'🌏','dart':'🎯',
+        'trophy':'🏆','medal':'🏅','first_place':'🥇','second_place':'🥈','third_place':'🥉',
+        'eyes':'👀','zzz':'💤','speech_balloon':'💬','thought_balloon':'💭','dollar':'💵',
+        'moneybag':'💰','credit_card':'💳','email':'📧','phone':'☎️','mobile_phone':'📱',
+        'laptop':'💻','computer':'🖥️','printer':'🖨️','keyboard':'⌨️','mouse_three_button':'🖱️',
+        'eyes_':'👀','mag':'🔍','bulb':'💡','battery':'🔋','plug':'🔌',
+        'lock':'🔒','unlock':'🔓','key':'🔑','hammer':'🔨','wrench':'🔧',
+        'calendar':'📅','clipboard':'📋','pushpin':'📌','paperclip':'📎','pencil2':'✏️',
+        'pen_ballpoint':'🖊','ballot_box':'🗳','chart_with_upwards_trend':'📈','chart_with_downwards_trend':'📉','bar_chart':'📊',
+        'scroll':'📜','bookmark_tabs':'📑','newspaper':'📰','page_facing_up':'📄','page_with_curl':'📃',
+        'book':'📖','books':'📚','notebook':'📓','notebook_with_decorative_cover':'📔','ledger':'📒',
+        'closed_book':'📕','green_book':'📗','blue_book':'📘','orange_book':'📙','bookmark':'🔖',
+        'link':'🔗','wheelchair':'♿','no_entry':'⛔','no_entry_sign':'🚫','skull_crossbones':'☠️',
+        'biohazard':'☣️','radioactive':'☢️','recycle':'♻️','fleur_de_lis':'⚜️','trident':'🔱',
+        // 한국어 관련 자주
+        'kr':'🇰🇷','flag-kr':'🇰🇷','kimchi':'🥬','ramen':'🍜','rice':'🍚',
+        'sushi':'🍣','bento':'🍱','bread':'🍞','cheese':'🧀','egg':'🥚',
+        // 추가
+        'man':'👨','woman':'👩','boy':'👦','girl':'👧','baby':'👶',
+        'older_man':'👴','older_woman':'👵','person_with_blond_hair':'👱','man_with_gua_pi_mao':'👲','man_with_turban':'👳',
+        'cop':'👮','construction_worker':'👷','guardsman':'💂','spy':'🕵','santa':'🎅'
+    };
+    function convertEmojiCodes(text) {
+        if (!text) return text;
+        // :emoji_name: → 이모지 변환
+        return text.replace(/:([a-zA-Z0-9_+\-]+):/g, function(match, code) {
+            var low = code.toLowerCase();
+            return EMOJI_MAP[low] || match; // 매핑 없으면 원본 유지
+        });
+    }
+
+    // [v3.7] Slack 첨부 파일 렌더링 (이미지는 자동 썸네일, 그 외는 카드)
+    function renderSlackFile(file, popupId, msgId) {
+        if (!file) return '';
+        var safeName = escapeHtml(file.name || '파일');
+        var sizeStr = formatFileSize(file.size || 0);
+        if (file.isImage && file.thumb360) {
+            // 이미지 → 프록시로 비동기 로드
+            var imgId = 'slkimg_' + (msgId || '') + '_' + (file.id || Math.random()).toString().replace(/[^a-zA-Z0-9_]/g, '');
+            var placeholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="160" viewBox="0 0 240 160">' +
+                '<rect fill="#e2e8f0" width="240" height="160"/>' +
+                '<text x="120" y="80" font-size="14" fill="#64748b" text-anchor="middle" dominant-baseline="central">📷 로딩 중...</text>' +
+                '</svg>'
+            );
+            // 렌더 후 비동기 로드 예약
+            setTimeout(function() { loadSlackImageViaProxy(file.thumb360, imgId, file.urlPrivate); }, 50);
+            return '<div class="msg-slk-img-wrap">' +
+                '<img id="' + imgId + '" class="msg-slk-img" src="' + placeholder + '" alt="' + safeName + '" ' +
+                'onclick="openSlackFullImage(\'' + encodeURIComponent(file.urlPrivate || file.thumb720 || '') + '\')" ' +
+                'loading="lazy" />' +
+                '<div class="msg-slk-img-caption">📷 ' + safeName + ' · ' + sizeStr + '</div>' +
+            '</div>';
+        }
+        // 이미지 아닌 파일 → 카드
+        var ext = (file.filetype || '').toLowerCase();
+        var iconChar = '📄';
+        if (ext === 'pdf') iconChar = '📕';
+        else if (ext === 'doc' || ext === 'docx') iconChar = '📘';
+        else if (ext === 'xls' || ext === 'xlsx') iconChar = '📗';
+        else if (ext === 'ppt' || ext === 'pptx') iconChar = '📙';
+        else if (ext === 'zip' || ext === 'rar' || ext === '7z') iconChar = '🗜️';
+        var link = file.permalink || file.urlPrivate || '';
+        var linkAttr = link ? 'onclick="window.open(\'' + encodeURIComponent(link).replace(/%/g, '%25') + '\', \'_blank\')"' : '';
+        return '<div class="msg-slk-file" ' + linkAttr + ' style="cursor:pointer;">' +
+            '<div class="msg-slk-file-icon">' + iconChar + '</div>' +
+            '<div class="msg-slk-file-info">' +
+                '<div class="msg-slk-file-name">' + safeName + '</div>' +
+                '<div class="msg-slk-file-size">' + sizeStr + '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    // [v3.7] 이미지 프록시 로드 (Slack 인증 URL → base64)
+    var __imageLoadCache = {};
+    function loadSlackImageViaProxy(url, imgId, fullUrl) {
+        if (!url || !imgId) return;
+        var img = document.getElementById(imgId);
+        if (!img) return;
+        // 동일 URL 캐시
+        if (__imageLoadCache[url]) {
+            img.src = __imageLoadCache[url];
+            return;
+        }
+        google.script.run
+            .withSuccessHandler(function(r) {
+                if (r && r.success && r.dataUrl) {
+                    __imageLoadCache[url] = r.dataUrl;
+                    var i = document.getElementById(imgId);
+                    if (i) i.src = r.dataUrl;
+                }
+            })
+            .withFailureHandler(function() {})
+            .getImageDataUrl(url);
+    }
+    window.openSlackFullImage = function(encodedUrl) {
+        if (!encodedUrl) return;
+        var url = decodeURIComponent(encodedUrl);
+        // 원본 해상도를 프록시로 가져와서 라이트박스에 표시
+        showToast('이미지 로딩 중...');
+        google.script.run
+            .withSuccessHandler(function(r) {
+                if (r && r.success && r.dataUrl) {
+                    openLightbox(encodeURIComponent(r.dataUrl));
+                } else {
+                    showToast('이미지 로딩 실패');
+                }
+            })
+            .withFailureHandler(function() { showToast('이미지 로딩 실패'); })
+            .getImageDataUrl(url);
+    };
 
     // [v0.4] 파일 말풍선 렌더
     function renderFileBubble(file) {

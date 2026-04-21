@@ -78,6 +78,14 @@
         <button class="action-btn btn-icon" onclick="testSlackNotification()" title="알림 테스트 — 탭 깜빡임 + 소리 + 데스크톱" aria-label="알림테스트">🔔</button>
         <!-- 오류신고 버튼은 06.html(수집기)에서 동적 주입됨 -->
     </div>
+
+    <!-- [v3.7] 사용 통계 위젯 (자랑용) -->
+    <div id="dashboardStatsWidget" class="dashboard-stats-widget" style="display:none;" onclick="showDashboardStatsDetail()" title="대시보드 사용 통계">
+        <span>👥</span>
+        <span>오늘 <span id="statToday" class="stats-badge">-</span></span>
+        <span>7일 <span id="stat7day" class="stats-badge">-</span></span>
+        <span>총 <span id="statTotal" class="stats-badge">-</span></span>
+    </div>
 </div>
 
 <!-- [v3.6] 사용법 도움말 모달 (공지용 자료) -->
@@ -794,6 +802,84 @@
         font-weight: 600;
     }
     .install-footer a:hover { text-decoration: underline; }
+    /* [v3.7] Slack 이미지 첨부 인라인 표시 */
+    .msg-slk-img-wrap {
+        margin-top: 4px;
+        border-radius: 10px;
+        overflow: hidden;
+        max-width: 280px;
+        background: #f1f5f9;
+    }
+    .msg-slk-img {
+        width: 100%;
+        max-width: 280px;
+        max-height: 300px;
+        object-fit: cover;
+        display: block;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .msg-slk-img:hover { opacity: 0.9; }
+    .msg-slk-img-caption {
+        padding: 5px 8px;
+        font-size: 11px;
+        color: #64748b;
+        background: white;
+    }
+    .msg-slk-file {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        margin-top: 4px;
+        max-width: 280px;
+    }
+    .msg-slk-file:hover { background: #f8fafc; }
+    .msg-slk-file-icon {
+        font-size: 28px;
+    }
+    .msg-slk-file-info { flex: 1; min-width: 0; }
+    .msg-slk-file-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .msg-slk-file-size {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 2px;
+    }
+
+    /* [v3.7] 대시보드 사용 통계 위젯 */
+    .dashboard-stats-widget {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 10px;
+        margin-left: 8px;
+        background: linear-gradient(135deg, #4A154B, #611f64);
+        color: white;
+        border-radius: 14px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.15s;
+    }
+    .dashboard-stats-widget:hover {
+        transform: scale(1.05);
+    }
+    .stats-badge {
+        background: rgba(255,255,255,0.25);
+        padding: 2px 6px;
+        border-radius: 8px;
+    }
+
     /* 설치 버튼 자체를 눈에 띄게 */
     .btn-install {
         background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
