@@ -797,6 +797,331 @@
     }
 </style>
 
+<!-- [v3.6] 랜딩 페이지 — 브라우저로 접속 시에만 표시 (설치 유도) -->
+<div id="landingPage" style="display:none;">
+    <div class="landing-container">
+        <!-- Hero -->
+        <div class="landing-hero">
+            <div class="landing-hero-emoji">💬</div>
+            <h1 class="landing-hero-title">개인대시보드 Slack</h1>
+            <p class="landing-hero-subtitle">Slack을 <b>카톡처럼 가볍게</b> 쓰세요</p>
+            <button class="landing-cta-btn" onclick="openInstallModal()">
+                🚀 시작하기 — 바탕화면에 설치
+            </button>
+            <div class="landing-hero-note">Chrome, Edge, 웨일 브라우저 지원 · Mac/Windows 모두 OK</div>
+        </div>
+
+        <!-- 3가지 장점 -->
+        <div class="landing-benefits">
+            <div class="landing-benefit">
+                <div class="landing-benefit-emoji">⚡</div>
+                <div class="landing-benefit-title">가볍다</div>
+                <div class="landing-benefit-desc">공식 Slack 앱의 1/5 메모리</div>
+            </div>
+            <div class="landing-benefit">
+                <div class="landing-benefit-emoji">💬</div>
+                <div class="landing-benefit-title">카톡 스타일</div>
+                <div class="landing-benefit-desc">익숙한 UI, 별도 창 지원</div>
+            </div>
+            <div class="landing-benefit">
+                <div class="landing-benefit-emoji">🔔</div>
+                <div class="landing-benefit-title">빠른 알림</div>
+                <div class="landing-benefit-desc">3초 간격 실시간 확인</div>
+            </div>
+        </div>
+
+        <!-- 사용법 섹션 -->
+        <div class="landing-guide-section">
+            <h2 class="landing-section-title">📖 사용법 (3단계)</h2>
+
+            <div class="landing-step-card">
+                <div class="landing-step-num">1</div>
+                <div class="landing-step-content">
+                    <div class="landing-step-title">🚀 위의 "시작하기" 버튼 클릭</div>
+                    <div class="landing-step-desc">바탕화면/시작 메뉴에 앱으로 설치돼요. 브라우저 안 열어도 됨.</div>
+                </div>
+            </div>
+
+            <div class="landing-step-card">
+                <div class="landing-step-num">2</div>
+                <div class="landing-step-content">
+                    <div class="landing-step-title">🔗 설치한 앱 실행 → Slack 연동 (1번만)</div>
+                    <div class="landing-step-desc"><b>"Slack 연동하기"</b> 클릭 → 본인 Slack 계정으로 <b>"허용"</b> → 끝!</div>
+                </div>
+            </div>
+
+            <div class="landing-step-card">
+                <div class="landing-step-num">3</div>
+                <div class="landing-step-content">
+                    <div class="landing-step-title">💬 대화 시작</div>
+                    <div class="landing-step-desc">카톡처럼 대화방 클릭 → 메시지 주고받기. 끝!</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 미리보기 -->
+        <div class="landing-preview-section">
+            <h2 class="landing-section-title">💬 이렇게 생겼어요</h2>
+            <div class="help-mock-layout" style="max-width:520px; margin: 0 auto;">
+                <div class="help-mock-sidebar">
+                    <div class="help-mock-sidebar-title">채팅 목록</div>
+                    <div class="help-mock-chat-item unread">
+                        <div class="help-mock-avatar" style="background:#3b82f6;">김</div>
+                        <div class="help-mock-chat-info">
+                            <div class="help-mock-chat-name">김철수</div>
+                            <div class="help-mock-chat-preview">점심 뭐 드세요?</div>
+                        </div>
+                        <div class="help-mock-badge">2</div>
+                    </div>
+                    <div class="help-mock-chat-item">
+                        <div class="help-mock-avatar" style="background:#ec4899;">이</div>
+                        <div class="help-mock-chat-info">
+                            <div class="help-mock-chat-name">이영희</div>
+                            <div class="help-mock-chat-preview">회의자료 공유드려요</div>
+                        </div>
+                    </div>
+                    <div class="help-mock-chat-item">
+                        <div class="help-mock-avatar" style="background:#10b981;">#</div>
+                        <div class="help-mock-chat-info">
+                            <div class="help-mock-chat-name"># 전체공지</div>
+                            <div class="help-mock-chat-preview">박민수: 내일 워크샵</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="help-mock-chat">
+                    <div class="help-mock-chat-header">
+                        <div class="help-mock-avatar" style="background:#3b82f6;">김</div>
+                        <div>김철수 <span class="help-mock-badge-label">👤 DM</span></div>
+                    </div>
+                    <div class="help-mock-chat-body">
+                        <div class="help-mock-msg-row">
+                            <div class="help-mock-avatar-sm" style="background:#3b82f6;">김</div>
+                            <div class="help-mock-bubble">점심 뭐 드세요?</div>
+                        </div>
+                        <div class="help-mock-msg-row mine">
+                            <div class="help-mock-bubble mine">오늘은 짜장면요 🍜</div>
+                        </div>
+                        <div class="help-mock-msg-row">
+                            <div class="help-mock-avatar-sm" style="background:#3b82f6;">김</div>
+                            <div class="help-mock-bubble">좋네요! 같이 가요 😊</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="landing-faq-section">
+            <h2 class="landing-section-title">❓ 자주 묻는 질문</h2>
+            <div class="help-faq">
+                <div class="help-faq-q">Q. 내 데이터는 안전한가요?</div>
+                <div class="help-faq-a">네. 각자 본인 Slack 계정으로만 OAuth 연동되고, 토큰은 사용자별로 격리돼요. 다른 사람 메시지 못 봐요.</div>
+
+                <div class="help-faq-q">Q. 여러 대화창 동시에 열 수 있나요?</div>
+                <div class="help-faq-a">Chrome에서는 <b>가능</b> (카톡 PC앱처럼 별도 창). 다른 브라우저는 한 번에 하나씩 풀스크린.</div>
+
+                <div class="help-faq-q">Q. 기존 Slack 공식 앱과 같이 써도 되나요?</div>
+                <div class="help-faq-a">네, 병행 가능. 이 대시보드는 가볍게 메시지만 확인할 때 편해요.</div>
+
+                <div class="help-faq-q">Q. Mac에서도 되나요?</div>
+                <div class="help-faq-a">네. Chrome/Edge에서 동일하게 설치 가능. Safari는 공유 → Dock에 추가.</div>
+
+                <div class="help-faq-q">Q. 알림이 느려요?</div>
+                <div class="help-faq-a">업무시간 3-5초, 점심 10초, 야간 60초 주기로 자동 조정. 가볍게 쓰려고 그래요.</div>
+            </div>
+        </div>
+
+        <!-- 마지막 CTA -->
+        <div class="landing-final-cta">
+            <button class="landing-cta-btn" onclick="openInstallModal()">
+                🚀 지금 바탕화면에 설치하기
+            </button>
+            <div class="landing-final-note">
+                설치는 무료 · 언제든지 제거 가능 · 본인 Slack 계정만 연동
+            </div>
+        </div>
+
+        <!-- 공유 -->
+        <div class="landing-share">
+            <div class="landing-share-title">📢 이 링크를 직원들에게 공유하세요</div>
+            <div class="landing-share-url">hyshin6664.github.io/slack-dashboard/</div>
+            <button class="install-btn install-btn-primary" onclick="copyHelpShareUrl()">📋 URL 복사</button>
+        </div>
+    </div>
+</div>
+
+<!-- 랜딩 페이지 스타일 -->
+<style>
+    .landing-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 60px;
+        font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    }
+    .landing-hero {
+        text-align: center;
+        padding: 50px 20px;
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        border-radius: 24px;
+        margin-bottom: 40px;
+        box-shadow: 0 15px 40px rgba(251,191,36,0.25);
+    }
+    .landing-hero-emoji {
+        font-size: 70px;
+        animation: bounce 1.5s infinite;
+    }
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-12px); }
+    }
+    .landing-hero-title {
+        font-size: 36px;
+        font-weight: 900;
+        color: #1e293b;
+        margin: 15px 0 10px;
+    }
+    .landing-hero-subtitle {
+        font-size: 18px;
+        color: #78350f;
+        margin-bottom: 30px;
+    }
+    .landing-cta-btn {
+        padding: 16px 40px;
+        background: #4A154B;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 17px;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(74,21,75,0.35);
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .landing-cta-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 25px rgba(74,21,75,0.45);
+    }
+    .landing-hero-note {
+        margin-top: 15px;
+        font-size: 13px;
+        color: #78350f;
+    }
+    .landing-benefits {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+        margin-bottom: 40px;
+    }
+    .landing-benefit {
+        background: white;
+        border-radius: 16px;
+        padding: 28px 20px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        transition: transform 0.2s;
+    }
+    .landing-benefit:hover {
+        transform: translateY(-4px);
+    }
+    .landing-benefit-emoji {
+        font-size: 44px;
+        margin-bottom: 10px;
+    }
+    .landing-benefit-title {
+        font-size: 17px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 6px;
+    }
+    .landing-benefit-desc {
+        font-size: 13px;
+        color: #64748b;
+    }
+    .landing-section-title {
+        font-size: 22px;
+        font-weight: 900;
+        color: #1e293b;
+        margin: 0 0 20px;
+        text-align: center;
+    }
+    .landing-guide-section, .landing-preview-section, .landing-faq-section {
+        margin-bottom: 40px;
+    }
+    .landing-step-card {
+        display: flex;
+        gap: 16px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .landing-step-num {
+        flex-shrink: 0;
+        width: 42px;
+        height: 42px;
+        background: linear-gradient(135deg, #4A154B, #611f64);
+        color: white;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 18px;
+    }
+    .landing-step-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 5px;
+    }
+    .landing-step-desc {
+        font-size: 14px;
+        color: #475569;
+        line-height: 1.6;
+    }
+    .landing-final-cta {
+        text-align: center;
+        padding: 40px 20px;
+        background: #f8fafc;
+        border-radius: 16px;
+        margin-bottom: 30px;
+    }
+    .landing-final-note {
+        margin-top: 14px;
+        font-size: 13px;
+        color: #64748b;
+    }
+    .landing-share {
+        padding: 24px;
+        background: linear-gradient(135deg, #4A154B, #611f64);
+        border-radius: 16px;
+        text-align: center;
+        color: white;
+    }
+    .landing-share-title {
+        font-size: 16px;
+        font-weight: 800;
+        margin-bottom: 12px;
+    }
+    .landing-share-url {
+        display: inline-block;
+        padding: 10px 20px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 8px;
+        font-family: monospace;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+    @media (max-width: 600px) {
+        .landing-hero-title { font-size: 28px; }
+        .landing-hero-subtitle { font-size: 15px; }
+        .landing-cta-btn { padding: 14px 28px; font-size: 15px; }
+        .landing-section-title { font-size: 18px; }
+    }
+</style>
+
 <div class="app-container">
     <!-- 데모 모드 배너 -->
     <div class="slack-demo-banner">

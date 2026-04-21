@@ -513,6 +513,31 @@
     // → 그래서 init을 즉시(또는 DOM 준비 후) 실행해야 함. 둘 다 등록.
     var __slackInitFn = function() {
         try {
+            // [v3.6] PWA standalone 아니면 → 랜딩 페이지만 표시 (앱 기능 비활성)
+            //   브라우저 탭으로 접속 = 직원 첫 방문 → 사용법 + 설치 유도만
+            //   PWA 설치 후 실행 = standalone → 정상 대시보드
+            var __landingMode = false;
+            try {
+                var inStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+                                   (window.matchMedia && window.matchMedia('(display-mode: window-controls-overlay)').matches) ||
+                                   (window.navigator && window.navigator.standalone === true);
+                __landingMode = !inStandalone;
+            } catch(e) {}
+            if (__landingMode) {
+                // 대시보드 UI 모두 숨기고 랜딩만 표시
+                var landing = document.getElementById('landingPage');
+                if (landing) landing.style.display = 'block';
+                var topBar = document.querySelector('.top-bar');
+                if (topBar) topBar.style.display = 'none';
+                var appContainer = document.querySelector('.app-container');
+                if (appContainer) appContainer.style.display = 'none';
+                document.body.style.background = '#f8fafc';
+                document.body.style.overflow = 'auto';
+                // 페이지 제목도 다르게
+                document.title = '개인대시보드 Slack — 설치 안내';
+                return; // 이후 init 스킵 (Slack 연동 등 비활성)
+            }
+
             // [v0.9] 즉시 스켈레톤 표시 (빈 화면 금지!)
             showSlackLoadingSkeleton();
             // [v0.7] 실제 Slack 연결 시도
